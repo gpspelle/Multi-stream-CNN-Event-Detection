@@ -169,7 +169,7 @@ def main(learning_rate, mini_batch_size, batch_norm, weight_0, epochs):
     features_file = 'features_urfd.h5'
     labels_file = 'labels_urfd.h5'
 
-    # todo: changes
+    # todo: changes (True -> extract features. False -> use avaible features.)
     save_features = True
     #save_features = False 
 
@@ -268,11 +268,6 @@ def main(learning_rate, mini_batch_size, batch_norm, weight_0, epochs):
     if do_training:
         h5features = h5py.File(features_file, 'r')
         h5labels = h5py.File(labels_file, 'r')
-
-        for i in h5features.keys():
-            print(i)
-            
-        exit(1)
         X_full = h5features['features']
         _y_full = np.asarray(h5labels['labels'])
         
