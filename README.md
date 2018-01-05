@@ -1,6 +1,21 @@
 # Fall Detection with CNN and Optic flow images 
 
-One Paragraph of project description goes here
+This repository contains the code the code proposed in the following paper:
+
+Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, I. (2017).
+"Vision-Based Fall Detection with Convolutional Neural Networks"
+Wireless Communications and Mobile Computing, 2017.
+
+If you find the code useful for your research, please, cite their paper:
+
+@article{nunez2017vision,
+  title={Vision-Based Fall Detection with Convolutional Neural Networks},
+  author={N{\'u}{\~n}ez-Marcos, Adri{\'a}n and Azkune, Gorka and Arganda-Carreras, Ignacio},
+  journal={Wireless Communications and Mobile Computing},
+  volume={2017},
+  year={2017},
+  publisher={Hindawi}
+}
 
 ## Getting Started
 
