@@ -22,8 +22,8 @@ from sklearn.model_selection import KFold
 from keras.layers.advanced_activations import ELU
 
 # CHANGE THESE VARIABLES
-data_folder = '/ssd_drive/UR_Fall_OF/'
-mean_file = '/ssd_drive/flow_mean.mat'
+data_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
+mean_file = '/home/ubuntu/gabriel/ssd_drive/flow_mean.mat'
 vgg_16_weights = 'weights.h5'
 model_file = 'models/exp_'
 weights_file = 'weights/exp_'
@@ -39,7 +39,7 @@ batch_norm = True
 learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
-epochs = 6000
+epochs = 300
 
 save_plots = True
 save_features = False
@@ -228,43 +228,43 @@ def main():
     model = Sequential()
     
     model.add(ZeroPadding2D((1, 1), input_shape=(20, 224, 224)))
-    model.add(Convolution2D(64, 3, 3, activation='relu', name='conv1_1'))
+    model.add(Convolution2D(64, (3, 3), activation='relu', name='conv1_1'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(64, 3, 3, activation='relu', name='conv1_2'))
+    model.add(Convolution2D(64, (3, 3), activation='relu', name='conv1_2'))
     model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(128, 3, 3, activation='relu', name='conv2_1'))
+    model.add(Convolution2D(128, (3, 3), activation='relu', name='conv2_1'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(128, 3, 3, activation='relu', name='conv2_2'))
+    model.add(Convolution2D(128, (3, 3), activation='relu', name='conv2_2'))
     model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(256, 3, 3, activation='relu', name='conv3_1'))
+    model.add(Convolution2D(256, (3, 3), activation='relu', name='conv3_1'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(256, 3, 3, activation='relu', name='conv3_2'))
+    model.add(Convolution2D(256, (3, 3), activation='relu', name='conv3_2'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(256, 3, 3, activation='relu', name='conv3_3'))
+    model.add(Convolution2D(256, (3, 3), activation='relu', name='conv3_3'))
     model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu', name='conv4_1'))
+    model.add(Convolution2D(512, (3, 3), activation='relu', name='conv4_1'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu', name='conv4_2'))
+    model.add(Convolution2D(512, (3, 3), activation='relu', name='conv4_2'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu', name='conv4_3'))
+    model.add(Convolution2D(512, (3, 3), activation='relu', name='conv4_3'))
     model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu', name='conv5_1'))
+    model.add(Convolution2D(512, (3, 3), activation='relu', name='conv5_1'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu', name='conv5_2'))
+    model.add(Convolution2D(512, (3, 3), activation='relu', name='conv5_2'))
     model.add(ZeroPadding2D((1, 1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu', name='conv5_3'))
+    model.add(Convolution2D(512, (3, 3), activation='relu', name='conv5_3'))
     model.add(MaxPooling2D((2, 2), strides=(2, 2)))
     
     model.add(Flatten())
-    model.add(Dense(num_features, name='fc6', init='glorot_uniform'))
+    model.add(Dense(num_features, name='fc6', kernel_initializer='glorot_uniform'))
     
     # =============================================================================================================
     # WEIGHT INITIALIZATION
@@ -277,19 +277,19 @@ def main():
     # Copy the weights stored in the 'vgg_16_weights' file to the feature extractor part of the VGG16
     for layer in layerscaffe[:-3]:
         w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
-        w2 = np.transpose(np.asarray(w2), (0,1,2,3))
-        w2 = w2[:, :, ::-1, ::-1]
+        w2 = np.transpose(np.asarray(w2), (3,2,1,0))
+        w2 = w2[::-1, ::-1, :, :]
         b2 = np.asarray(b2)
-        layer_dict[layer].W.set_value(w2)
-        layer_dict[layer].b.set_value(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
       
     # Copy the weights of the first fully-connected layer (fc6)
     layer = layerscaffe[-3]
     w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
     w2 = np.transpose(np.asarray(w2), (1,0))
     b2 = np.asarray(b2)
-    layer_dict[layer].W.set_value(w2)
-    layer_dict[layer].b.set_value(b2)
+    K.set_value(layer_dict[layer].kernel, w2)
+    K.set_value(layer_dict[layer].bias, b2)
 
     # =============================================================================================================
     # FEATURE EXTRACTION
@@ -368,14 +368,14 @@ def main():
                 x = ELU(alpha=1.0)(extracted_features)
            
             x = Dropout(0.9)(x)
-            x = Dense(4096, name='fc2', init='glorot_uniform')(x)
+            x = Dense(4096, name='fc2', kernel_initializer='glorot_uniform')(x)
             if batch_norm:
                 x = BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001)(x)
                 x = Activation('relu')(x)
             else:
                 x = ELU(alpha=1.0)(x)
             x = Dropout(0.8)(x)
-            x = Dense(1, name='predictions', init='glorot_uniform')(x)
+            x = Dense(1, name='predictions', kernel_initializer='glorot_uniform')(x)
             x = Activation('sigmoid')(x)
             
             classifier = Model(input=extracted_features, output=x, name='classifier')
@@ -386,7 +386,7 @@ def main():
             class_weight = {0: weight_0, 1: 1}
             # Batch training
             if mini_batch_size == 0:
-                history = classifier.fit(X,_y, validation_data=(X2,_y2), batch_size=X.shape[0], nb_epoch=epochs, shuffle='batch', class_weight=class_weight)
+                history = classifier.fit(X,_y, validation_data=(X2,_y2), batch_size=X.shape[0], epochs=epochs, shuffle='batch', class_weight=class_weight)
             else:
                 history = classifier.fit(X,_y, validation_data=(X2,_y2), batch_size=mini_batch_size, nb_epoch=epochs, shuffle='batch', class_weight=class_weight)
             plot_training_info(exp, ['accuracy', 'loss'], save_plots, history.history)
