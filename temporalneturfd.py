@@ -20,15 +20,19 @@ import glob
 import gc
 from sklearn.model_selection import KFold
 from keras.layers.advanced_activations import ELU
+import cPickle
 
 # CHANGE THESE VARIABLES
-data_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
+training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_fall_OF/'
+evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
 mean_file = '/home/ubuntu/gabriel/ssd_drive/flow_mean.mat'
 vgg_16_weights = 'weights.h5'
 model_file = 'models/exp_'
 weights_file = 'weights/exp_'
-features_file = 'features_urfd.h5'
-labels_file = 'labels_urfd.h5'
+training_features_file = 'features_urfd.h5'
+training_labels_file = 'labels_urfd.h5'
+evaluation_features_file = 'features_val.h5'
+evaluation_labels_file = 'labels_val.h5'
 
 features_key = 'features'
 labels_key = 'labels'
@@ -42,11 +46,24 @@ weight_0 = 1
 epochs = 300
 
 save_plots = True
-save_features = False
+extract_features = True 
+do_evaluation = True
+
+do_training = True   
+compute_metrics = True
+threshold = 0.5
 
 # Name of the experiment
 exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(learning_rate, mini_batch_size, batch_norm, weight_0)
         
+def save_classifier(classifier, classifier_name):
+    with open(classifier_name, 'wb') as f:
+        cPickle.dump(classifier, f)
+
+def get_classifier(classifier_name):
+    with open(classifier_name, 'rb') as f:
+        return cPickle.load(fid)
+
 def plot_training_info(case, metrics, save, history):
     '''
     Function to create plots for train and validation loss and accuracy
@@ -97,7 +114,7 @@ def generator(list1, lits2):
     for x,y in zip(list1,lits2):
         yield x, y
           
-def saveFeatures(feature_extractor, features_file, labels_file, features_key, labels_key):
+def extractFeatures(feature_extractor, features_file, labels_file, features_key, labels_key, data_folder):
     '''
     Function to load the optical flow stacks, do a feed-forward through the feature extractor (VGG16) and
     store the output feature vectors in the file 'features_file' and the labels in 'labels_file'.
@@ -292,21 +309,18 @@ def main():
     K.set_value(layer_dict[layer].bias, b2)
 
     # =============================================================================================================
-    # FEATURE EXTRACTION
-    # =============================================================================================================
-    if save_features:
-        saveFeatures(model, features_file, labels_file, features_key, labels_key)
-        
-    # =============================================================================================================
     # TRAINING
     # =============================================================================================================    
-    adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
-    model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
-    do_training = True   
-    compute_metrics = True
-    threshold = 0.5
-    
     if do_training:
+
+        # =============================================================================================================
+        # FEATURE EXTRACTION
+        # =============================================================================================================
+        if extract_features:
+            extractFeatures(model, training_features_file, training_labels_file, features_key, labels_key, training_folder)
+
+        adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
+        model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
         h5features = h5py.File(features_file, 'r')
         h5labels = h5py.File(labels_file, 'r')
         
@@ -438,6 +452,28 @@ def main():
         print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
         print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
         print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), np.std(accuracies)))
+
+        # todo: SAVE CLASSIFIFER
+        #save_classifier('urfd_classifier.pkl', classifier)
+
+    # =============================================================================================================
+    # TESTING CLASSIFIER 
+    # =============================================================================================================
+    if do_evaluation:
+
+        # todo: GET CLASSIFIER
+        #classifier = get_classifier('urfd_classifier.pkl')
+
+        # =============================================================================================================
+        # FEATURE EXTRACTION
+        # =============================================================================================================
+        if extract_features:
+            extractFeatures(model, evaluation_features_file, evaluation_labels_file, features_key, labels_key, evaluation_folder)
+
+        # todo: organize extracted features 
+        # todo: feedforward
+        # todo: evaluate result
+
         
 if __name__ == '__main__':
     if not os.path.exists('models'):
