@@ -171,7 +171,7 @@ def saveFeatures(feature_extractor, features_file, labels_file, features_key, la
             
         # Subtract mean
         flow = flow - np.tile(flow_mean[...,np.newaxis], (1, 1, 1, flow.shape[3]))
-        # Transpose for channel ordering (Theano in this case)
+        # Transpose for channel ordering (Tensorflow in this case)
         flow = np.transpose(flow, (3, 2, 0, 1)) 
         predictions = np.zeros((flow.shape[0], num_features), dtype=np.float64)
         truth = np.zeros((flow.shape[0], 1), dtype=np.float64)
