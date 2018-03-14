@@ -1,6 +1,6 @@
 ## Fall-Detection-with-CNNs-and-Optical-Flow
 
-This repository contains the code for our paper:
+This repository contains the code for their paper:
 
 ```
 Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, I. (2017).
