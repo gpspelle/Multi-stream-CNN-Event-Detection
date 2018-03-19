@@ -47,11 +47,12 @@ epochs = 300
 
 save_plots = True
 extract_features = True 
-do_evaluation = True
 
 do_training = True   
 compute_metrics = True
 threshold = 0.5
+
+do_evaluation = False 
 
 # Name of the experiment
 exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(learning_rate, mini_batch_size, batch_norm, weight_0)
@@ -334,10 +335,10 @@ def main():
         ones.sort()
         
         # Use a 5 fold cross-validation
-        kf_falls = KFold(n_splits=5)
+        kf_falls = KFold(n_splits=1)
         kf_falls.get_n_splits(X_full[zeroes, ...])
         
-        kf_nofalls = KFold(n_splits=5)
+        kf_nofalls = KFold(n_splits=1)
         kf_nofalls.get_n_splits(X_full[ones, ...])        
         
         sensitivities = []
@@ -345,7 +346,9 @@ def main():
         fars = []
         mdrs = []
         accuracies = []
-            
+        
+        first = 0
+
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
         for (train_index_falls, test_index_falls), (train_index_nofalls, test_index_nofalls) in zip(kf_falls.split(X_full[zeroes, ...]), kf_nofalls.split(X_full[ones, ...])):
             train_index_falls = np.asarray(train_index_falls)
@@ -405,6 +408,12 @@ def main():
                 history = classifier.fit(X,_y, validation_data=(X2,_y2), batch_size=mini_batch_size, nb_epoch=epochs, shuffle='batch', class_weight=class_weight)
             plot_training_info(exp, ['accuracy', 'loss'], save_plots, history.history)
 
+
+            if first == 0:
+                save_classifier('urfd_classifier.pkl', classifier)
+
+            first = 1
+
             # ==================== EVALUATION ========================        
             if compute_metrics:
                predicted = classifier.predict(np.asarray(X2))
@@ -453,16 +462,13 @@ def main():
         print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
         print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), np.std(accuracies)))
 
-        # todo: SAVE CLASSIFIFER
-        #save_classifier('urfd_classifier.pkl', classifier)
 
     # =============================================================================================================
     # TESTING CLASSIFIER 
     # =============================================================================================================
     if do_evaluation:
 
-        # todo: GET CLASSIFIER
-        #classifier = get_classifier('urfd_classifier.pkl')
+        classifier = get_classifier('urfd_classifier.pkl')
 
         # =============================================================================================================
         # FEATURE EXTRACTION
@@ -482,18 +488,49 @@ def main():
         index_nofalls = np.asarray(index_nofalls)
         index = np.concatenate((index_falls, index_nofalls), axis=0)
         index.sort()
-        X = np.concatenate((X_full[train_index_falls, ...], X_full[train_index_nofalls, ...]))
-        _y = np.concatenate((_y_full[train_index_falls, ...], _y_full[train_index_nofalls, ...]))
-        X2 = np.concatenate((X_full[test_index_falls, ...], X_full[test_index_nofalls, ...]))
-        _y2 = np.concatenate((_y_full[test_index_falls, ...], _y_full[test_index_nofalls, ...]))   
-            
-
-
-        # todo: organize extracted features 
-        # todo: feedforward
-        # todo: evaluate result
-
         
+        X2 = np.concatenate((X_full[index_falls, ...], X_full[index_nofalls, ...]))
+        _y2 = np.concatenate((_y_full[index_falls, ...], _y_full[index_nofalls, ...]))   
+        
+        predicted = classifier.predict(np.assarray(X2))
+        for i in range(len(predicted)):
+            if predicted[i] < threshold:
+                predicted[i] = 0
+            else:
+                predicted[i] = 1
+            # Array of predictions 0/1
+            predicted = np.asarray(predicted).astype(int)   
+            # Compute metrics and print them
+            cm = confusion_matrix(_y2, predicted,labels=[0,1])
+            tp = cm[0][0]
+            fn = cm[0][1]
+            fp = cm[1][0]
+            tn = cm[1][1]
+            tpr = tp/float(tp+fn)
+            fpr = fp/float(fp+tn)
+            fnr = fn/float(fn+tp)
+            tnr = tn/float(tn+fp)
+            precision = tp/float(tp+fp)
+            recall = tp/float(tp+fn)
+            specificity = tn/float(tn+fp)
+            f1 = 2*float(precision*recall)/float(precision+recall)
+            accuracy = accuracy_score(_y2, predicted)
+            
+            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+            print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+            print('Sensitivity/Recall: {}'.format(recall))
+            print('Specificity: {}'.format(specificity))
+            print('Precision: {}'.format(precision))
+            print('F1-measure: {}'.format(f1))
+            print('Accuracy: {}'.format(accuracy))
+            
+            # Store the metrics for this epoch
+            sensitivities.append(tp/float(tp+fn))
+            specificities.append(tn/float(tn+fp))
+            fars.append(fpr)
+            mdrs.append(fnr)
+            accuracies.append(accuracy)
+
 if __name__ == '__main__':
     if not os.path.exists('models'):
         os.makedirs('models')
