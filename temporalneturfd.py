@@ -20,10 +20,10 @@ import glob
 import gc
 from sklearn.model_selection import KFold
 from keras.layers.advanced_activations import ELU
-import cPickle
+import _pickle as cPickle
 
 # CHANGE THESE VARIABLES
-training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_fall_OF/'
+training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
 evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
 mean_file = '/home/ubuntu/gabriel/ssd_drive/flow_mean.mat'
 vgg_16_weights = 'weights.h5'
@@ -176,7 +176,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, features_key,
         flow = np.zeros(shape=(224,224,2*L,nb_stacks), dtype=np.float64)
         gen = generator(x_images,y_images)
         for i in range(len(x_images)):
-            flow_x_file, flow_y_file = gen.next()
+            flow_x_file, flow_y_file = next(gen)
             img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
             img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
             # Assign an image i to the jth stack in the kth position, but also in the j+1th stack in the k+1th position and so on (for sliding window) 
