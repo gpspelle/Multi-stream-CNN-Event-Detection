@@ -321,8 +321,8 @@ def main():
 
         adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
         model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
-        h5features = h5py.File(features_file, 'r')
-        h5labels = h5py.File(labels_file, 'r')
+        h5features = h5py.File(training_features_file, 'r')
+        h5labels = h5py.File(training_labels_file, 'r')
         
         # X_full will contain all the feature vectors extracted from optical flow images
         X_full = h5features[features_key]
@@ -469,6 +469,25 @@ def main():
         # =============================================================================================================
         if extract_features:
             extractFeatures(model, evaluation_features_file, evaluation_labels_file, features_key, labels_key, evaluation_folder)
+
+        # Reading information extracted
+        h5features = h5py.File(evaluation_features_file, 'r')
+        h5labels = h5py.File(evaluation_labels_file, 'r')
+        
+        # all_features will contain all the feature vectors extracted from optical flow images
+        all_features = h5features[features_key]
+        all_labels = np.asarray(h5labels[labels_key])
+        
+        index_falls = np.asarray(index_falls)
+        index_nofalls = np.asarray(index_nofalls)
+        index = np.concatenate((index_falls, index_nofalls), axis=0)
+        index.sort()
+        X = np.concatenate((X_full[train_index_falls, ...], X_full[train_index_nofalls, ...]))
+        _y = np.concatenate((_y_full[train_index_falls, ...], _y_full[train_index_nofalls, ...]))
+        X2 = np.concatenate((X_full[test_index_falls, ...], X_full[test_index_nofalls, ...]))
+        _y2 = np.concatenate((_y_full[test_index_falls, ...], _y_full[test_index_nofalls, ...]))   
+            
+
 
         # todo: organize extracted features 
         # todo: feedforward
