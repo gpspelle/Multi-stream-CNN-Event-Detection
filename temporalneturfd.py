@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import os
-from keras.models import Model, Sequential
+from keras.models import Model, Sequential, load_model
 from keras.layers import Input, Convolution2D, MaxPooling2D, Flatten, Activation, Dense, Dropout, ZeroPadding2D
 from keras.optimizers import Adam
 from keras.layers.normalization import BatchNormalization 
@@ -20,7 +20,8 @@ import glob
 import gc
 from sklearn.model_selection import KFold
 from keras.layers.advanced_activations import ELU
-import _pickle as cPickle
+from sklearn.externals import joblib
+import pickle
 
 # CHANGE THESE VARIABLES
 training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
@@ -43,28 +44,21 @@ batch_norm = True
 learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
-epochs = 300
+epochs = 1 
 
 save_plots = True
-extract_features = True 
+extract_features_training = False 
+extract_features_evaluation = True
 
-do_training = True   
+do_training = False
+do_evaluation = True 
 compute_metrics = True
 threshold = 0.5
 
-do_evaluation = False 
 
 # Name of the experiment
 exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(learning_rate, mini_batch_size, batch_norm, weight_0)
         
-def save_classifier(classifier, classifier_name):
-    with open(classifier_name, 'wb') as f:
-        cPickle.dump(classifier, f)
-
-def get_classifier(classifier_name):
-    with open(classifier_name, 'rb') as f:
-        return cPickle.load(fid)
-
 def plot_training_info(case, metrics, save, history):
     '''
     Function to create plots for train and validation loss and accuracy
@@ -317,7 +311,7 @@ def main():
         # =============================================================================================================
         # FEATURE EXTRACTION
         # =============================================================================================================
-        if extract_features:
+        if extract_features_training:
             extractFeatures(model, training_features_file, training_labels_file, features_key, labels_key, training_folder)
 
         adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
@@ -335,18 +329,15 @@ def main():
         ones.sort()
         
         # Use a 5 fold cross-validation
-        kf_falls = KFold(n_splits=1)
-        kf_falls.get_n_splits(X_full[zeroes, ...])
-        
-        kf_nofalls = KFold(n_splits=1)
-        kf_nofalls.get_n_splits(X_full[ones, ...])        
+        kf_falls = KFold(n_splits=2)
+        kf_nofalls = KFold(n_splits=2)
         
         sensitivities = []
         specificities = []
         fars = []
         mdrs = []
         accuracies = []
-        
+       
         first = 0
 
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
@@ -355,10 +346,7 @@ def main():
             test_index_falls = np.asarray(test_index_falls)
             train_index_nofalls = np.asarray(train_index_nofalls)
             test_index_nofalls = np.asarray(test_index_nofalls)
-            train_index = np.concatenate((train_index_falls, train_index_nofalls), axis=0)
-            test_index = np.concatenate((test_index_falls, test_index_nofalls), axis=0)
-            train_index.sort()
-            test_index.sort()
+
             X = np.concatenate((X_full[train_index_falls, ...], X_full[train_index_nofalls, ...]))
             _y = np.concatenate((_y_full[train_index_falls, ...], _y_full[train_index_nofalls, ...]))
             X2 = np.concatenate((X_full[test_index_falls, ...], X_full[test_index_nofalls, ...]))
@@ -409,11 +397,6 @@ def main():
             plot_training_info(exp, ['accuracy', 'loss'], save_plots, history.history)
 
 
-            if first == 0:
-                save_classifier('urfd_classifier.pkl', classifier)
-
-            first = 1
-
             # ==================== EVALUATION ========================        
             if compute_metrics:
                predicted = classifier.predict(np.asarray(X2))
@@ -454,6 +437,11 @@ def main():
                fars.append(fpr)
                mdrs.append(fnr)
                accuracies.append(accuracy)
+            
+            if first == 0:
+                classifier.save('urfd_classifier.h5')
+                first = 1
+
 
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
@@ -462,18 +450,17 @@ def main():
         print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
         print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), np.std(accuracies)))
 
-
     # =============================================================================================================
     # TESTING CLASSIFIER 
     # =============================================================================================================
     if do_evaluation:
 
-        classifier = get_classifier('urfd_classifier.pkl')
+        classifier = load_model('urfd_classifier.h5')
 
         # =============================================================================================================
         # FEATURE EXTRACTION
         # =============================================================================================================
-        if extract_features:
+        if extract_features_evaluation:
             extractFeatures(model, evaluation_features_file, evaluation_labels_file, features_key, labels_key, evaluation_folder)
 
         # Reading information extracted
@@ -484,15 +471,16 @@ def main():
         all_features = h5features[features_key]
         all_labels = np.asarray(h5labels[labels_key])
         
-        index_falls = np.asarray(index_falls)
-        index_nofalls = np.asarray(index_nofalls)
-        index = np.concatenate((index_falls, index_nofalls), axis=0)
-        index.sort()
+        zeroes = np.asarray(np.where(all_labels==0)[0])
+        ones = np.asarray(np.where(all_labels==1)[0])
+    
+        zeroes.sort()
+        ones.sort()
+
+        _X2 = np.concatenate((all_features[zeroes, ...], all_features[ones, ...]))
+        _y2 = np.concatenate((all_labels[zeroes, ...], all_labels[ones, ...]))
         
-        X2 = np.concatenate((X_full[index_falls, ...], X_full[index_nofalls, ...]))
-        _y2 = np.concatenate((_y_full[index_falls, ...], _y_full[index_nofalls, ...]))   
-        
-        predicted = classifier.predict(np.assarray(X2))
+        predicted = classifier.predict(np.asarray(_X2))
         for i in range(len(predicted)):
             if predicted[i] < threshold:
                 predicted[i] = 0
@@ -500,7 +488,7 @@ def main():
                 predicted[i] = 1
             # Array of predictions 0/1
             predicted = np.asarray(predicted).astype(int)   
-            # Compute metrics and print them
+            # Compute metrics and print em
             cm = confusion_matrix(_y2, predicted,labels=[0,1])
             tp = cm[0][0]
             fn = cm[0][1]
