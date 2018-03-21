@@ -20,20 +20,21 @@ import glob
 import gc
 from sklearn.model_selection import KFold
 from keras.layers.advanced_activations import ELU
-from sklearn.externals import joblib
-import pickle
 
 # CHANGE THESE VARIABLES
-training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
+#training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
+training_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
 evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
 mean_file = '/home/ubuntu/gabriel/ssd_drive/flow_mean.mat'
 vgg_16_weights = 'weights.h5'
 model_file = 'models/exp_'
 weights_file = 'weights/exp_'
-training_features_file = 'features_urfd.h5'
-training_labels_file = 'labels_urfd.h5'
+#training_features_file = 'features_urfd.h5'
+#training_labels_file = 'labels_urfd.h5'
 evaluation_features_file = 'features_val.h5'
 evaluation_labels_file = 'labels_val.h5'
+training_features_file = evaluation_features_file
+training_labels_file = evaluation_labels_file
 
 features_key = 'features'
 labels_key = 'labels'
@@ -44,18 +45,18 @@ batch_norm = True
 learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
-epochs = 1 
+epochs = 100
 
 save_plots = True
 extract_features_training = False 
-extract_features_evaluation = True
+extract_features_evaluation = False
 
-do_training = False
+do_training = True 
 do_evaluation = True 
 compute_metrics = True
 threshold = 0.5
 
-
+np.set_printoptions(threshold=np.nan)
 # Name of the experiment
 exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(learning_rate, mini_batch_size, batch_norm, weight_0)
         
@@ -212,7 +213,7 @@ def test_video(feature_extractor, video_path, ground_truth):
     flow = np.zeros(shape=(224,224,2*L,nb_stacks), dtype=np.float64)
     gen = generator(x_images,y_images)
     for i in range(len(x_images)):
-        flow_x_file, flow_y_file = gen.next()
+        flow_x_file, flow_y_file = next(gen)
         img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
         img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
         # Assign an image i to the jth stack in the kth position, but also in the j+1th stack in the k+1th position and so on (for sliding window) 
@@ -329,8 +330,8 @@ def main():
         ones.sort()
         
         # Use a 5 fold cross-validation
-        kf_falls = KFold(n_splits=2)
-        kf_nofalls = KFold(n_splits=2)
+        kf_falls = KFold(n_splits=5)
+        kf_nofalls = KFold(n_splits=5)
         
         sensitivities = []
         specificities = []
@@ -352,6 +353,7 @@ def main():
             X2 = np.concatenate((X_full[test_index_falls, ...], X_full[test_index_nofalls, ...]))
             _y2 = np.concatenate((_y_full[test_index_falls, ...], _y_full[test_index_nofalls, ...]))   
             
+            # todo: Is this working? 
             # Balance the number of positive and negative samples so that there is the same amount of each of them
             all0 = np.asarray(np.where(_y==0)[0])
             all1 = np.asarray(np.where(_y==1)[0])  
@@ -454,6 +456,11 @@ def main():
     # TESTING CLASSIFIER 
     # =============================================================================================================
     if do_evaluation:
+        sensitivities = []
+        specificities = []
+        fars = []
+        mdrs = []
+        accuracies = []
 
         classifier = load_model('urfd_classifier.h5')
 
@@ -470,10 +477,11 @@ def main():
         # all_features will contain all the feature vectors extracted from optical flow images
         all_features = h5features[features_key]
         all_labels = np.asarray(h5labels[labels_key])
-        
+       
         zeroes = np.asarray(np.where(all_labels==0)[0])
         ones = np.asarray(np.where(all_labels==1)[0])
-    
+   
+        # todo: I believe they're already sorted
         zeroes.sort()
         ones.sort()
 
@@ -486,38 +494,38 @@ def main():
                 predicted[i] = 0
             else:
                 predicted[i] = 1
-            # Array of predictions 0/1
-            predicted = np.asarray(predicted).astype(int)   
-            # Compute metrics and print em
-            cm = confusion_matrix(_y2, predicted,labels=[0,1])
-            tp = cm[0][0]
-            fn = cm[0][1]
-            fp = cm[1][0]
-            tn = cm[1][1]
-            tpr = tp/float(tp+fn)
-            fpr = fp/float(fp+tn)
-            fnr = fn/float(fn+tp)
-            tnr = tn/float(tn+fp)
-            precision = tp/float(tp+fp)
-            recall = tp/float(tp+fn)
-            specificity = tn/float(tn+fp)
-            f1 = 2*float(precision*recall)/float(precision+recall)
-            accuracy = accuracy_score(_y2, predicted)
-            
-            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-            print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-            print('Sensitivity/Recall: {}'.format(recall))
-            print('Specificity: {}'.format(specificity))
-            print('Precision: {}'.format(precision))
-            print('F1-measure: {}'.format(f1))
-            print('Accuracy: {}'.format(accuracy))
-            
-            # Store the metrics for this epoch
-            sensitivities.append(tp/float(tp+fn))
-            specificities.append(tn/float(tn+fp))
-            fars.append(fpr)
-            mdrs.append(fnr)
-            accuracies.append(accuracy)
+        # Array of predictions 0/1
+        predicted = np.asarray(predicted).astype(int)   
+        # Compute metrics and print em
+        cm = confusion_matrix(_y2, predicted,labels=[0,1])
+        tp = cm[0][0]
+        fn = cm[0][1]
+        fp = cm[1][0]
+        tn = cm[1][1]
+        tpr = tp/float(tp+fn)
+        fpr = fp/float(fp+tn)
+        fnr = fn/float(fn+tp)
+        tnr = tn/float(tn+fp)
+        precision = tp/float(tp+fp)
+        recall = tp/float(tp+fn)
+        specificity = tn/float(tn+fp)
+        f1 = 2*float(precision*recall)/float(precision+recall)
+        accuracy = accuracy_score(_y2, predicted)
+        
+        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+        print('Sensitivity/Recall: {}'.format(recall))
+        print('Specificity: {}'.format(specificity))
+        print('Precision: {}'.format(precision))
+        print('F1-measure: {}'.format(f1))
+        print('Accuracy: {}'.format(accuracy))
+        
+        # Store the metrics for this epoch
+        sensitivities.append(tp/float(tp+fn))
+        specificities.append(tn/float(tn+fp))
+        fars.append(fpr)
+        mdrs.append(fnr)
+        accuracies.append(accuracy)
 
 if __name__ == '__main__':
     if not os.path.exists('models'):
