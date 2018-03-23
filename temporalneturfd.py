@@ -45,10 +45,10 @@ batch_norm = True
 learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
-epochs = 100
+epochs = 50
 
 save_plots = True
-extract_features_training = False 
+extract_features_training = True
 extract_features_evaluation = False
 
 do_training = True 
@@ -175,7 +175,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, features_key,
             img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
             img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
             # Assign an image i to the jth stack in the kth position, but also in the j+1th stack in the k+1th position and so on (for sliding window) 
-            for s in list(reversed(range(min(10,i+1)))):
+            for s in list(reversed(range(min(L,i+1)))):
                 if i-s < nb_stacks:
                     flow[:,:,2*s,  i-s] = img_x
                     flow[:,:,2*s+1,i-s] = img_y
@@ -217,7 +217,7 @@ def test_video(feature_extractor, video_path, ground_truth):
         img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
         img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
         # Assign an image i to the jth stack in the kth position, but also in the j+1th stack in the k+1th position and so on (for sliding window) 
-        for s in list(reversed(range(min(10,i+1)))):
+        for s in list(reversed(range(min(L,i+1)))):
             if i-s < nb_stacks:
                 flow[:,:,2*s,  i-s] = img_x
                 flow[:,:,2*s+1,i-s] = img_y
@@ -481,7 +481,6 @@ def main():
         zeroes = np.asarray(np.where(all_labels==0)[0])
         ones = np.asarray(np.where(all_labels==1)[0])
    
-        # todo: I believe they're already sorted
         zeroes.sort()
         ones.sort()
 
@@ -496,6 +495,7 @@ def main():
                 predicted[i] = 1
         # Array of predictions 0/1
         predicted = np.asarray(predicted).astype(int)   
+        print("\n\nHow many elements there are: " +  str(len(predicted)) + "\n\n")
         # Compute metrics and print em
         cm = confusion_matrix(_y2, predicted,labels=[0,1])
         tp = cm[0][0]
