@@ -59,7 +59,62 @@ threshold = 0.5
 np.set_printoptions(threshold=np.nan)
 # Name of the experiment
 exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(learning_rate, mini_batch_size, batch_norm, weight_0)
-        
+      
+def evaluate(predicted, X2, _y2, sensitivities, specifities, fars, mdrs, accuracies):
+    for i in range(len(predicted)):
+        if predicted[i] < threshold:
+            predicted[i] = 0
+        else:
+            predicted[i] = 1
+        # Array of predictions 0/1
+        predicted = np.asarray(predicted).astype(int)
+        # Compute metrics and print them
+        cm = confusion_matrix(_y2, predicted,labels=[0,1])
+        tp = cm[0][0]
+        fn = cm[0][1]
+        fp = cm[1][0]
+        tn = cm[1][1]
+        tpr = tp/float(tp+fn)
+        fpr = fp/float(fp+tn)
+        fnr = fn/float(fn+tp)
+        tnr = tn/float(tn+fp)
+        precision = tp/float(tp+fp)
+        recall = tp/float(tp+fn)
+        specificity = tn/float(tn+fp)
+        f1 = 2*float(precision*recall)/float(precision+recall)
+        accuracy = accuracy_score(_y2, predicted)
+
+        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+        print('Sensitivity/Recall: {}'.format(recall))
+        print('Specificity: {}'.format(specificity))
+        print('Precision: {}'.format(precision))
+        print('F1-measure: {}'.format(f1))
+        print('Accuracy: {}'.format(accuracy))
+
+        # Store the metrics for this epoch
+        sensitivities.append(tp/float(tp+fn))
+        specificities.append(tn/float(tn+fp))
+        fars.append(fpr)
+        mdrs.append(fnr)
+        accuracies.append(accuracy)
+
+def check_videos(video_split, _y2, predicted):
+    video = 1
+    inic = 0
+    for x in video_split:
+       correct = 1
+       for i in range(inic, x):
+           if predicted[i] != _y2[i]:
+                correct = 0
+       if correct == 1:
+           print("Hit video: " + str(video))
+       else:
+           print("Miss video: " + str(video))
+
+       video += 1
+       inic += x
+
 def plot_training_info(case, metrics, save, history):
     '''
     Function to create plots for train and validation loss and accuracy
@@ -110,7 +165,7 @@ def generator(list1, lits2):
     for x,y in zip(list1,lits2):
         yield x, y
           
-def extractFeatures(feature_extractor, features_file, labels_file, features_key, labels_key, data_folder):
+def extractFeatures(feature_extractor, features_file, labels_file, features_key, labels_key, data_folder, video_split):
     '''
     Function to load the optical flow stacks, do a feed-forward through the feature extractor (VGG16) and
     store the output feature vectors in the file 'features_file' and the labels in 'labels_file'.
@@ -196,6 +251,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, features_key,
         dataset_features[cont:cont+flow.shape[0],:] = predictions
         dataset_labels[cont:cont+flow.shape[0],:] = truth
         cont += flow.shape[0]
+        video_split.append(flow.shape[0])
     h5features.close()
     h5labels.close()
     
@@ -304,16 +360,19 @@ def main():
     K.set_value(layer_dict[layer].kernel, w2)
     K.set_value(layer_dict[layer].bias, b2)
 
+
     # =============================================================================================================
     # TRAINING
     # =============================================================================================================    
     if do_training:
 
+        # Store how many samples a video has
+        video_split = []
         # =============================================================================================================
         # FEATURE EXTRACTION
         # =============================================================================================================
         if extract_features_training:
-            extractFeatures(model, training_features_file, training_labels_file, features_key, labels_key, training_folder)
+            extractFeatures(model, training_features_file, training_labels_file, features_key, labels_key, training_folder, video_split)
 
         adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
         model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
@@ -402,48 +461,13 @@ def main():
             # ==================== EVALUATION ========================        
             if compute_metrics:
                predicted = classifier.predict(np.asarray(X2))
-               for i in range(len(predicted)):
-                   if predicted[i] < threshold:
-                       predicted[i] = 0
-                   else:
-                       predicted[i] = 1
-               # Array of predictions 0/1
-               predicted = np.asarray(predicted).astype(int)   
-               # Compute metrics and print them
-               cm = confusion_matrix(_y2, predicted,labels=[0,1])
-               tp = cm[0][0]
-               fn = cm[0][1]
-               fp = cm[1][0]
-               tn = cm[1][1]
-               tpr = tp/float(tp+fn)
-               fpr = fp/float(fp+tn)
-               fnr = fn/float(fn+tp)
-               tnr = tn/float(tn+fp)
-               precision = tp/float(tp+fp)
-               recall = tp/float(tp+fn)
-               specificity = tn/float(tn+fp)
-               f1 = 2*float(precision*recall)/float(precision+recall)
-               accuracy = accuracy_score(_y2, predicted)
-               
-               print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-               print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-               print('Sensitivity/Recall: {}'.format(recall))
-               print('Specificity: {}'.format(specificity))
-               print('Precision: {}'.format(precision))
-               print('F1-measure: {}'.format(f1))
-               print('Accuracy: {}'.format(accuracy))
-               
-               # Store the metrics for this epoch
-               sensitivities.append(tp/float(tp+fn))
-               specificities.append(tn/float(tn+fp))
-               fars.append(fpr)
-               mdrs.append(fnr)
-               accuracies.append(accuracy)
+               evaluate(predicted, X2, _y2, sensitivities, specifities, fars, mdrs, accuracies)
+               check_videos(video_split, _y2, predicted) 
             
+            # Store only the first classifier
             if first == 0:
                 classifier.save('urfd_classifier.h5')
                 first = 1
-
 
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
@@ -464,11 +488,14 @@ def main():
 
         classifier = load_model('urfd_classifier.h5')
 
+        # Store how many samples a video has
+        video_split = []
+
         # =============================================================================================================
         # FEATURE EXTRACTION
         # =============================================================================================================
         if extract_features_evaluation:
-            extractFeatures(model, evaluation_features_file, evaluation_labels_file, features_key, labels_key, evaluation_folder)
+            extractFeatures(model, evaluation_features_file, evaluation_labels_file, features_key, labels_key, evaluation_folder, video_split)
 
         # Reading information extracted
         h5features = h5py.File(evaluation_features_file, 'r')
@@ -488,44 +515,9 @@ def main():
         _y2 = np.concatenate((all_labels[zeroes, ...], all_labels[ones, ...]))
         
         predicted = classifier.predict(np.asarray(_X2))
-        for i in range(len(predicted)):
-            if predicted[i] < threshold:
-                predicted[i] = 0
-            else:
-                predicted[i] = 1
-        # Array of predictions 0/1
-        predicted = np.asarray(predicted).astype(int)   
+        evaluate(predicted, X2, _y2, sensitivities, specifities, fars, mdrs, accuracies)
         print("\n\nHow many elements there are: " +  str(len(predicted)) + "\n\n")
-        # Compute metrics and print em
-        cm = confusion_matrix(_y2, predicted,labels=[0,1])
-        tp = cm[0][0]
-        fn = cm[0][1]
-        fp = cm[1][0]
-        tn = cm[1][1]
-        tpr = tp/float(tp+fn)
-        fpr = fp/float(fp+tn)
-        fnr = fn/float(fn+tp)
-        tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
-        recall = tp/float(tp+fn)
-        specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
-        accuracy = accuracy_score(_y2, predicted)
-        
-        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-        print('Sensitivity/Recall: {}'.format(recall))
-        print('Specificity: {}'.format(specificity))
-        print('Precision: {}'.format(precision))
-        print('F1-measure: {}'.format(f1))
-        print('Accuracy: {}'.format(accuracy))
-        
-        # Store the metrics for this epoch
-        sensitivities.append(tp/float(tp+fn))
-        specificities.append(tn/float(tn+fp))
-        fars.append(fpr)
-        mdrs.append(fnr)
-        accuracies.append(accuracy)
+        check_videos(video_split, _y2, predicted) 
 
 if __name__ == '__main__':
     if not os.path.exists('models'):
