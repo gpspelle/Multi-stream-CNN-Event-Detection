@@ -66,38 +66,38 @@ def evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accur
             predicted[i] = 0
         else:
             predicted[i] = 1
-        # Array of predictions 0/1
-        predicted = np.asarray(predicted).astype(int)
-        # Compute metrics and print them
-        cm = confusion_matrix(_y2, predicted,labels=[0,1])
-        tp = cm[0][0]
-        fn = cm[0][1]
-        fp = cm[1][0]
-        tn = cm[1][1]
-        tpr = tp/float(tp+fn)
-        fpr = fp/float(fp+tn)
-        fnr = fn/float(fn+tp)
-        tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
-        recall = tp/float(tp+fn)
-        specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
-        accuracy = accuracy_score(_y2, predicted)
+    # Array of predictions 0/1
+    predicted = np.asarray(predicted).astype(int)
+    # Compute metrics and print them
+    cm = confusion_matrix(_y2, predicted,labels=[0,1])
+    tp = cm[0][0]
+    fn = cm[0][1]
+    fp = cm[1][0]
+    tn = cm[1][1]
+    tpr = tp/float(tp+fn)
+    fpr = fp/float(fp+tn)
+    fnr = fn/float(fn+tp)
+    tnr = tn/float(tn+fp)
+    precision = tp/float(tp+fp)
+    recall = tp/float(tp+fn)
+    specificity = tn/float(tn+fp)
+    f1 = 2*float(precision*recall)/float(precision+recall)
+    accuracy = accuracy_score(_y2, predicted)
 
-        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-        print('Sensitivity/Recall: {}'.format(recall))
-        print('Specificity: {}'.format(specificity))
-        print('Precision: {}'.format(precision))
-        print('F1-measure: {}'.format(f1))
-        print('Accuracy: {}'.format(accuracy))
+    print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+    print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+    print('Sensitivity/Recall: {}'.format(recall))
+    print('Specificity: {}'.format(specificity))
+    print('Precision: {}'.format(precision))
+    print('F1-measure: {}'.format(f1))
+    print('Accuracy: {}'.format(accuracy))
 
-        # Store the metrics for this epoch
-        sensitivities.append(tp/float(tp+fn))
-        specificities.append(tn/float(tn+fp))
-        fars.append(fpr)
-        mdrs.append(fnr)
-        accuracies.append(accuracy)
+    # Store the metrics for this epoch
+    sensitivities.append(tp/float(tp+fn))
+    specificities.append(tn/float(tn+fp))
+    fars.append(fpr)
+    mdrs.append(fnr)
+    accuracies.append(accuracy)
 
 def check_videos(video_split, _y2, predicted):
     video = 1
