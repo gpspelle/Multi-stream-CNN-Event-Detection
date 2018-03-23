@@ -48,10 +48,10 @@ weight_0 = 1
 epochs = 50
 
 save_plots = True
-extract_features_training = True
+extract_features_training = False 
 extract_features_evaluation = False
 
-do_training = True 
+do_training = False 
 do_evaluation = True 
 compute_metrics = True
 threshold = 0.5
@@ -60,7 +60,7 @@ np.set_printoptions(threshold=np.nan)
 # Name of the experiment
 exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(learning_rate, mini_batch_size, batch_norm, weight_0)
       
-def evaluate(predicted, X2, _y2, sensitivities, specifities, fars, mdrs, accuracies):
+def evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies):
     for i in range(len(predicted)):
         if predicted[i] < threshold:
             predicted[i] = 0
@@ -458,17 +458,18 @@ def main():
             plot_training_info(exp, ['accuracy', 'loss'], save_plots, history.history)
 
 
-            # ==================== EVALUATION ========================        
-            if compute_metrics:
-               predicted = classifier.predict(np.asarray(X2))
-               evaluate(predicted, X2, _y2, sensitivities, specifities, fars, mdrs, accuracies)
-               check_videos(video_split, _y2, predicted) 
-            
             # Store only the first classifier
             if first == 0:
                 classifier.save('urfd_classifier.h5')
                 first = 1
 
+            # ==================== EVALUATION ========================        
+            if compute_metrics:
+               predicted = classifier.predict(np.asarray(X2))
+               evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
+               check_videos(video_split, _y2, predicted) 
+            
+            
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
         print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities), np.std(specificities)))
@@ -511,11 +512,11 @@ def main():
         zeroes.sort()
         ones.sort()
 
-        _X2 = np.concatenate((all_features[zeroes, ...], all_features[ones, ...]))
+        X2 = np.concatenate((all_features[zeroes, ...], all_features[ones, ...]))
         _y2 = np.concatenate((all_labels[zeroes, ...], all_labels[ones, ...]))
         
-        predicted = classifier.predict(np.asarray(_X2))
-        evaluate(predicted, X2, _y2, sensitivities, specifities, fars, mdrs, accuracies)
+        predicted = classifier.predict(np.asarray(X2))
+        evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
         print("\n\nHow many elements there are: " +  str(len(predicted)) + "\n\n")
         check_videos(video_split, _y2, predicted) 
 
