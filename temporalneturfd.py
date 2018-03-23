@@ -49,7 +49,7 @@ epochs = 50
 
 save_plots = True
 extract_features_training = False 
-extract_features_evaluation = False
+extract_features_evaluation = True 
 
 do_training = False 
 do_evaluation = True 
@@ -100,20 +100,24 @@ def evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accur
     accuracies.append(accuracy)
 
 def check_videos(video_split, _y2, predicted):
+
+    '''
+        todo: if no feature extracted you haven't a video_split vector
+    '''
     video = 1
     inic = 0
     for x in video_split:
-       correct = 1
-       for i in range(inic, x):
+        correct = 1
+        for i in range(inic, x):
            if predicted[i] != _y2[i]:
                 correct = 0
-       if correct == 1:
+        if correct == 1:
            print("Hit video: " + str(video))
-       else:
+        else:
            print("Miss video: " + str(video))
 
-       video += 1
-       inic += x
+        video += 1
+        inic += x
 
 def plot_training_info(case, metrics, save, history):
     '''
