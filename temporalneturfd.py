@@ -33,12 +33,14 @@ weights_file = 'weights/exp_'
 #training_labels_file = 'labels_urfd.h5'
 evaluation_features_file = 'features_val.h5'
 evaluation_labels_file = 'labels_val.h5'
+evaluation_samples_file = 'samples_val.h5'
 training_features_file = evaluation_features_file
 training_labels_file = evaluation_labels_file
+training_samples_file = evaluation_samples_file
 
 features_key = 'features'
 labels_key = 'labels'
-
+samples_key = 'samples'
 L = 10
 num_features = 4096
 batch_norm = True
@@ -99,14 +101,12 @@ def evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accur
     mdrs.append(fnr)
     accuracies.append(accuracy)
 
-def check_videos(video_split, _y2, predicted):
+def check_videos(_y2, predicted, samples_key, samples_file):
 
-    '''
-        todo: if no feature extracted you haven't a video_split vector
-    '''
+    all_samples = np.asarray(h5py.File[samples_key])
     video = 1
     inic = 0
-    for x in video_split:
+    for x in all_samples 
         correct = 1
         for i in range(inic, x):
            if predicted[i] != _y2[i]:
@@ -169,7 +169,7 @@ def generator(list1, lits2):
     for x,y in zip(list1,lits2):
         yield x, y
           
-def extractFeatures(feature_extractor, features_file, labels_file, features_key, labels_key, data_folder, video_split):
+def extractFeatures(feature_extractor, features_file, labels_file, samples_file, features_key, labels_key, samples_key, data_folder):
     '''
     Function to load the optical flow stacks, do a feed-forward through the feature extractor (VGG16) and
     store the output feature vectors in the file 'features_file' and the labels in 'labels_file'.
@@ -216,9 +216,14 @@ def extractFeatures(feature_extractor, features_file, labels_file, features_key,
     # IMPORTANT NOTE: 'w' mode totally erases previous data
     h5features = h5py.File(features_file,'w')
     h5labels = h5py.File(labels_file,'w')
+    h5samples = h5py.File(samples_file, 'w')
+
     dataset_features = h5features.create_dataset(features_key, shape=(nb_total_stacks, num_features), dtype='float64')
     dataset_labels = h5labels.create_dataset(labels_key, shape=(nb_total_stacks, 1), dtype='float64')  
+    dataset_samples = h5samples.create_dataset(samples_key, shape=(len(folder), 1), dtype='float64')  
+
     cont = 0
+    number = 0
     
     for folder, label in zip(folders, classes):
         x_images = glob.glob(folder + '/flow_x*.jpg')
@@ -254,10 +259,11 @@ def extractFeatures(feature_extractor, features_file, labels_file, features_key,
             truth[i] = label
         dataset_features[cont:cont+flow.shape[0],:] = predictions
         dataset_labels[cont:cont+flow.shape[0],:] = truth
+        dataset_samples[number++] = flow.shape[0]
         cont += flow.shape[0]
-        video_split.append(flow.shape[0])
     h5features.close()
     h5labels.close()
+    h5samples.close()
     
 def test_video(feature_extractor, video_path, ground_truth):
     # Load the mean file to subtract to the images
@@ -370,13 +376,11 @@ def main():
     # =============================================================================================================    
     if do_training:
 
-        # Store how many samples a video has
-        video_split = []
         # =============================================================================================================
         # FEATURE EXTRACTION
         # =============================================================================================================
         if extract_features_training:
-            extractFeatures(model, training_features_file, training_labels_file, features_key, labels_key, training_folder, video_split)
+            extractFeatures(model, training_features_file, training_labels_file, tranining_samples_file, features_key, labels_key, samples_key, training_folder)
 
         adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
         model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
@@ -471,7 +475,7 @@ def main():
             if compute_metrics:
                predicted = classifier.predict(np.asarray(X2))
                evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
-               check_videos(video_split, _y2, predicted) 
+               check_videos(_y2, predicted, samples_key, training_samples_file) 
             
             
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
@@ -493,23 +497,20 @@ def main():
 
         classifier = load_model('urfd_classifier.h5')
 
-        # Store how many samples a video has
-        video_split = []
-
         # =============================================================================================================
         # FEATURE EXTRACTION
         # =============================================================================================================
         if extract_features_evaluation:
-            extractFeatures(model, evaluation_features_file, evaluation_labels_file, features_key, labels_key, evaluation_folder, video_split)
+            extractFeatures(model, evaluation_features_file, evaluation_labels_file, evaluation_samples_file, features_key, labels_key, samples_key, evaluation_folder)
 
         # Reading information extracted
         h5features = h5py.File(evaluation_features_file, 'r')
         h5labels = h5py.File(evaluation_labels_file, 'r')
-        
+
         # all_features will contain all the feature vectors extracted from optical flow images
         all_features = h5features[features_key]
         all_labels = np.asarray(h5labels[labels_key])
-       
+
         zeroes = np.asarray(np.where(all_labels==0)[0])
         ones = np.asarray(np.where(all_labels==1)[0])
    
@@ -522,7 +523,7 @@ def main():
         predicted = classifier.predict(np.asarray(X2))
         evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
         print("\n\nHow many elements there are: " +  str(len(predicted)) + "\n\n")
-        check_videos(video_split, _y2, predicted) 
+        check_videos(_y2, predicted, samples_key, evaluation_samples_file) 
 
 if __name__ == '__main__':
     if not os.path.exists('models'):
