@@ -22,38 +22,40 @@ from sklearn.model_selection import KFold
 from keras.layers.advanced_activations import ELU
 
 # CHANGE THESE VARIABLES
-#training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
-training_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
-evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
+training_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
+evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
 mean_file = '/home/ubuntu/gabriel/ssd_drive/flow_mean.mat'
 vgg_16_weights = 'weights.h5'
 model_file = 'models/exp_'
 weights_file = 'weights/exp_'
-#training_features_file = 'features_urfd.h5'
-#training_labels_file = 'labels_urfd.h5'
-evaluation_features_file = 'features_val.h5'
-evaluation_labels_file = 'labels_val.h5'
-evaluation_samples_file = 'samples_val.h5'
-training_features_file = evaluation_features_file
-training_labels_file = evaluation_labels_file
-training_samples_file = evaluation_samples_file
+training_features_file = 'features_urfd.h5'
+training_labels_file = 'labels_urfd.h5'
+training_samples_file = 'samples_urfd.h5'
+
+evaluation_features_file = 'features_urfd.h5'
+evaluation_labels_file = 'labels_urfd.h5'
+evaluation_samples_file = 'samples_urfd.h5'
+#evaluation_features_file = 'features_val.h5'
+#evaluation_labels_file = 'labels_val.h5'
+#evaluation_samples_file = 'samples_val.h5'
 
 features_key = 'features'
 labels_key = 'labels'
 samples_key = 'samples'
+
 L = 10
 num_features = 4096
 batch_norm = True
 learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
-epochs = 50
+epochs = 200
 
 save_plots = True
-extract_features_training = False 
-extract_features_evaluation = True 
+extract_features_training = True 
+extract_features_evaluation = False 
 
-do_training = False 
+do_training = True
 do_evaluation = True 
 compute_metrics = True
 threshold = 0.5
@@ -103,21 +105,29 @@ def evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accur
 
 def check_videos(_y2, predicted, samples_key, samples_file):
 
-    all_samples = np.asarray(h5py.File[samples_key])
+    h5samples = h5py.File(samples_file, 'r')
+    all_samples = np.asarray(h5samples[samples_key])
     video = 1
     inic = 0
-    for x in all_samples 
+    misses = 0
+    for x in range(len(all_samples)):
         correct = 1
-        for i in range(inic, x):
+
+        if all_samples[x][0] == 0:
+                continue
+
+        for i in range(inic, inic + all_samples[x][0]):
            if predicted[i] != _y2[i]:
+                misses+=1
                 correct = 0
+
         if correct == 1:
            print("Hit video: " + str(video))
         else:
            print("Miss video: " + str(video))
 
         video += 1
-        inic += x
+        inic += all_samples[x][0]
 
 def plot_training_info(case, metrics, save, history):
     '''
@@ -220,7 +230,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, samples_file,
 
     dataset_features = h5features.create_dataset(features_key, shape=(nb_total_stacks, num_features), dtype='float64')
     dataset_labels = h5labels.create_dataset(labels_key, shape=(nb_total_stacks, 1), dtype='float64')  
-    dataset_samples = h5samples.create_dataset(samples_key, shape=(len(folder), 1), dtype='float64')  
+    dataset_samples = h5samples.create_dataset(samples_key, shape=(len(folder), 1), dtype='int32')  
 
     cont = 0
     number = 0
@@ -259,7 +269,8 @@ def extractFeatures(feature_extractor, features_file, labels_file, samples_file,
             truth[i] = label
         dataset_features[cont:cont+flow.shape[0],:] = predictions
         dataset_labels[cont:cont+flow.shape[0],:] = truth
-        dataset_samples[number++] = flow.shape[0]
+        dataset_samples[number: number+1, :] = flow.shape[0]
+        number+=1
         cont += flow.shape[0]
     h5features.close()
     h5labels.close()
@@ -380,7 +391,7 @@ def main():
         # FEATURE EXTRACTION
         # =============================================================================================================
         if extract_features_training:
-            extractFeatures(model, training_features_file, training_labels_file, tranining_samples_file, features_key, labels_key, samples_key, training_folder)
+            extractFeatures(model, training_features_file, training_labels_file, training_samples_file, features_key, labels_key, samples_key, training_folder)
 
         adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
         model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
@@ -519,7 +530,7 @@ def main():
 
         X2 = np.concatenate((all_features[zeroes, ...], all_features[ones, ...]))
         _y2 = np.concatenate((all_labels[zeroes, ...], all_labels[ones, ...]))
-        
+       
         predicted = classifier.predict(np.asarray(X2))
         evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
         print("\n\nHow many elements there are: " +  str(len(predicted)) + "\n\n")
