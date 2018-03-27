@@ -130,10 +130,12 @@ def check_videos(_y2, predicted, samples_key, samples_file, num_key, num_file):
     inic = 0
     misses = 0
 
-    msage_fall = list("Fall videos ")
+    msage_fall = list("###### Fall videos ")
     msage_fall.append(str(all_num[0][0]))
-    msage_not_fall = list("Not fall videos ")
+    msage_fall.append(" ######")
+    msage_not_fall = list("###### Not fall videos ")
     msage_not_fall.append(str(all_num[1][0]))
+    msage_not_fall.append(" ######")
 
     for x in range(len(all_samples)):
         correct = 1
@@ -142,9 +144,9 @@ def check_videos(_y2, predicted, samples_key, samples_file, num_key, num_file):
             continue
 
         if x == 0:
-            print(msage_fall.join())
+            print(''.join(msage_fall))
         elif x == all_num[1][0]:
-            print(msage_not_fall.join())
+            print(''.join(msage_not_fall))
             video = 1 
 
         for i in range(inic, inic + all_samples[x][0]):
@@ -265,7 +267,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, samples_file,
 
     dataset_features = h5features.create_dataset(features_key, shape=(nb_total_stacks, num_features), dtype='float64')
     dataset_labels = h5labels.create_dataset(labels_key, shape=(nb_total_stacks, 1), dtype='float64')  
-    dataset_samples = h5samples.create_dataset(samples_key, shape=(len(folder), 1), dtype='int32')  
+    dataset_samples = h5samples.create_dataset(samples_key, shape=(len(fall_videos) + len(not_fall_videos), 1), dtype='int32')  
     dataset_num = h5num_classes.create_dataset(num_key, shape=(2, 1), dtype='int32')  
     
     dataset_num[0] = len(fall_videos)
@@ -308,7 +310,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, samples_file,
             truth[i] = label
         dataset_features[cont:cont+flow.shape[0],:] = predictions
         dataset_labels[cont:cont+flow.shape[0],:] = truth
-        dataset_samples[number: number+1, :] = flow.shape[0]
+        dataset_samples[number] = flow.shape[0]
         number+=1
         cont += flow.shape[0]
     h5features.close()
@@ -573,7 +575,6 @@ def main():
        
         predicted = classifier.predict(np.asarray(X2))
         evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
-        print("\n\nHow many elements there are: " +  str(len(predicted)) + "\n\n")
         check_videos(_y2, predicted, samples_key, evaluation_samples_file, num_key, evaluation_num_file) 
 
 if __name__ == '__main__':
