@@ -3,9 +3,9 @@ class feature_extractor:
     def __init__(self, class0, class1, num_features):
         self.class0 = class0
         self.class1 = class1
+        self.num_features = num_features
         self.folders = []
         self.classes = []
-
         # Total amount of stacks, with sliding window = num_images-L+1
         self.nb_total_stacks = 0
 
@@ -15,6 +15,14 @@ class feature_extractor:
 
     def open_mean_file(name_file, file_key):
         return sio.loadmat(name_file)[file_key]
+
+    def generator(list1, list2):
+        '''
+        Auxiliar generator: returns the ith element of both given list with 
+        each call to next() 
+        '''
+        for x,y in zip(list1,list2):
+            yield x, y
 
     def extractFeatures(feature_extractor, features_file, labels_file,
                         samples_file, num_file, features_key, labels_key,
@@ -37,24 +45,26 @@ class feature_extractor:
         flow_mean = open_mean_file(mean_file, 'image_mean')
 
         # Fill the folders and classes arrays with all the paths to the data
-        fall_videos = [f for f in os.listdir(data_folder + class0) 
-                       if os.path.isdir(os.path.join(data_folder + class0, f))]
+        fall_videos = [f for f in os.listdir(data_folder + self.class0) 
+                       if os.path.isdir(os.path.join(data_folder + 
+                           self.class0, f))]
         fall_videos.sort()
         for fall_video in fall_videos:
-            x_images = glob.glob(data_folder + class0 + '/' + 
+            x_images = glob.glob(data_folder + self.class0 + '/' + 
                                  fall_video + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
-                folders.append(data_folder + class0 + '/' + fall_video)
+                folders.append(data_folder + self.class0 + '/' + fall_video)
                 classes.append(0)
 
-        not_fall_videos = [f for f in os.listdir(data_folder + class1) 
-                    if os.path.isdir(os.path.join(data_folder + class1, f))]
+        not_fall_videos = [f for f in os.listdir(data_folder + self.class1) 
+                    if os.path.isdir(os.path.join(data_folder + 
+                        self.class1, f))]
         not_fall_videos.sort()
         for not_fall_video in not_fall_videos:
-            x_images = glob.glob(data_folder + class1 + '/' +
+            x_images = glob.glob(data_folder + self.class1 + '/' +
                                  not_fall_video + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
-                folders.append(data_folder + class1 + '/' + not_fall_video)
+                folders.append(data_folder + self.class1 + '/' + not_fall_video)
                 classes.append(1)
 
         for folder in folders:
@@ -69,7 +79,7 @@ class feature_extractor:
         h5num_classes = h5py.File(num_file, 'w')
 
         dataset_features = h5features.create_dataset(features_key, 
-                shape=(nb_total_stacks, num_features), dtype='float64')
+                shape=(nb_total_stacks, self.num_features), dtype='float64')
         dataset_labels = h5labels.create_dataset(labels_key, 
                 shape=(nb_total_stacks, 1), dtype='float64')  
         dataset_samples = h5samples.create_dataset(samples_key, 
@@ -93,7 +103,7 @@ class feature_extractor:
             # Here nb_stacks optical flow stacks will be stored
             flow = np.zeros(shape=(x_size, y_size, 2*sliding_height, nb_stacks),
                                     dtype=np.float64)
-            gen = generator(x_images,y_images)
+            gen = self.generator(x_images,y_images)
             for i in range(len(x_images)):
                 flow_x_file, flow_y_file = next(gen)
                 img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
@@ -112,7 +122,8 @@ class feature_extractor:
             flow = subtracte_mean_file(flow, flow_mean)
             # Transpose for channel ordering (Tensorflow in this case)
             flow = np.transpose(flow, (3, 2, 0, 1)) 
-            predictions = np.zeros((nb_stacks, num_features), dtype=np.float64)
+            predictions = np.zeros((nb_stacks, self.num_features), 
+                    dtype=np.float64)
             truth = np.zeros((nb_stacks, 1), dtype='int8')
             # Process each stack: do the feed-forward pass and store in the 
             # hdf5 file the output

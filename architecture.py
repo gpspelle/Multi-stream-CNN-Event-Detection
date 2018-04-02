@@ -6,6 +6,10 @@ class architecture:
         self.layers_name = []
 
         if name == 'VGG16':
+            self.layers_name = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 
+                    'conv3_1', 'conv3_2', 'conv3_3', 'conv4_1', 'conv4_2', 
+                    'conv4_3', 'conv5_1', 'conv5_2', 'conv5_3', 'fc6', 'fc7', 
+                    'fc8']
             self.model = Sequential()
 
             self.model.add(ZeroPadding2D((1, 1), input_shape=(20, 224, 224)))
@@ -16,55 +20,31 @@ class architecture:
                 name='conv1_2'))
             self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(128, (3, 3), activation='relu', 
-                name='conv2_1'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(128, (3, 3), activation='relu', 
-                name='conv2_2'))
-            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+            filters = [128, 256, 512, 512]
+            layer_p = 2
+            for num_filters in filters: 
+                layer = layers_name[layer_p]
+                self.model.add(ZeroPadding2D((1, 1)))
+                self.model.add(Convolution2D(num_filters, (3, 3), activation='relu', 
+                    name=layer))
+                layer_p += 1
+                self.model.add(ZeroPadding2D((1, 1)))
+                layer = layers_name[layer_p]
+                self.model.add(Convolution2D(num_filters, (3, 3), activation='relu', 
+                    name=layer))
+                layer_p += 1
+                self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(256, (3, 3), activation='relu', 
-                name='conv3_1'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(256, (3, 3), activation='relu', 
-                name='conv3_2'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(256, (3, 3), activation='relu', 
-                name='conv3_3'))
-            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
-
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
-                name='conv4_1'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(512, (3, 3), activation='relu',
-                name='conv4_2'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
-                name='conv4_3'))
-            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
-
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(512, (3, 3), activation='relu',
-                name='conv5_1'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
-                name='conv5_2'))
-            self.model.add(ZeroPadding2D((1, 1)))
-            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
-                name='conv5_3'))
-            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
-            
             self.model.add(Flatten())
             self.model.add(Dense(num_features, name='fc6', 
                 kernel_initializer='glorot_uniform'))
 
-            self.layers_name = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 
-                    'conv3_1', 'conv3_2', 'conv3_3', 'conv4_1', 'conv4_2', 
-                    'conv4_3', 'conv5_1', 'conv5_2', 'conv5_3', 'fc6', 'fc7', 
-                    'fc8']
+    def optmizer(opt_name):
+        if opt_name == 'adam':
+            adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, 
+                    epsilon=1e-08, decay=0.0005)
+            self.model.compile(optimizer=adam, loss='categorical_crossentropy',
+                    metrics=['accuracy'])
 
     def weight_init(weights_file):
         '''
