@@ -48,10 +48,15 @@ training_num_file = 'num_val.h5'
 #evaluation_samples_file = 'samples_urfd.h5'
 #evaluation_num_file = 'num_urfd.h5'
 
-evaluation_features_file = 'features_val.h5'
-evaluation_labels_file = 'labels_val.h5'
-evaluation_samples_file = 'samples_val.h5'
-evaluation_num_file = 'num_val.h5'
+#evaluation_features_file = 'features_val.h5'
+#evaluation_labels_file = 'labels_val.h5'
+#evaluation_samples_file = 'samples_val.h5'
+#evaluation_num_file = 'num_val.h5'
+
+evaluation_features_file = 'fake_val.h5'
+evaluation_labels_file = 'fakee_val.h5'
+evaluation_samples_file = 'fakeee_val.h5'
+evaluation_num_file = 'fakeeee_val.h5'
 
 features_key = 'features'
 labels_key = 'labels'
@@ -313,6 +318,7 @@ def extractFeatures(feature_extractor, features_file, labels_file, samples_file,
         dataset_samples[number] = flow.shape[0]
         number+=1
         cont += flow.shape[0]
+
     h5features.close()
     h5labels.close()
     h5samples.close()
