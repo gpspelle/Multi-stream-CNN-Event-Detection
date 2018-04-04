@@ -24,7 +24,7 @@ class feature_extractor:
         for x,y in zip(list1,list2):
             yield x, y
 
-    def extractFeatures(feature_extractor, features_file, labels_file,
+    def extractFeatures(extractor_model, features_file, labels_file,
                         samples_file, num_file, features_key, labels_key,
                         samples_key, num_key, data_folder, sliding_height):
         '''
@@ -32,7 +32,7 @@ class feature_extractor:
         the feature extractor (VGG16) and store the output feature vectors in 
         the file 'features_file' and the labels in 'labels_file'.
         Input:
-        * feature_extractor: model VGG16 until the fc6 layer.
+        * extractor_model: model VGG16 until the fc6 layer.
         * features_file: path to the hdf5 file where the extracted features are
         going to be stored
         * labels_file: path to the hdf5 file where the labels of the features
@@ -128,7 +128,7 @@ class feature_extractor:
             # Process each stack: do the feed-forward pass and store in the 
             # hdf5 file the output
             for i in range(nb_stacks):
-                prediction = feature_extractor.predict(np.expand_dims(
+                prediction = extractor_model.predict(np.expand_dims(
                                                                 flow[i, ...],0))
                 predictions[i, ...] = prediction
                 truth[i] = label

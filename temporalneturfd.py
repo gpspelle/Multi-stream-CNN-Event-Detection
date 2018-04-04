@@ -168,7 +168,6 @@ def check_videos(_y2, predicted, samples_key, samples_file, num_key, num_file):
 
         video += 1
         inic += all_samples[x][0]
-    #print(misses)
 
 def plot_training_info(case, metrics, save, history):
     '''
