@@ -438,7 +438,7 @@ def main():
         # FEATURE EXTRACTION
         # =============================================================================================================
         if extract_features_training:
-            extractFeatures(model, training_features_file, training_labels_file, training_samples_file, training_num_file, features_key, labels_key, samples_key, training_num_key, training_folder)
+            extractFeatures(model, training_features_file, training_labels_file, training_samples_file, training_num_file, features_key, labels_key, samples_key, num_key, training_folder)
 
         adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0005)
         model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])

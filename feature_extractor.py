@@ -24,7 +24,7 @@ class feature_extractor:
         for x,y in zip(list1,list2):
             yield x, y
 
-    def extractFeatures(extractor_model, features_file, labels_file,
+    def extract(extractor_model, features_file, labels_file,
                         samples_file, num_file, features_key, labels_key,
                         samples_key, num_key, data_folder, sliding_height):
         '''

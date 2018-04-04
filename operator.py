@@ -1,6 +1,6 @@
 class operator:
 
-    def __init__(self, name):
+    def __init__(self):
         self.kf_falls = None
         self.kf_nofalls = None
         self.falls = None
@@ -31,6 +31,9 @@ class operator:
         self.no_falls = np.asarray(np.where(all_labels==1)[0])
         self.falls.sort()
         self.no_falls.sort() 
+
+    def prepare_evaluate(self):
+        
 
     def cross_training(features_file, labels_file, features_key, labels_key,
     n_splits, num_features, weight_0, epochs, compute_metrics):
@@ -293,5 +296,4 @@ class operator:
                            name='classifier')
         self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
                            metrics=['accuracy'])
-
 

@@ -76,4 +76,3 @@ class architecture:
         K.set_value(layer_dict[layer].kernel, w2)
         K.set_value(layer_dict[layer].bias, b2)
 
-    
