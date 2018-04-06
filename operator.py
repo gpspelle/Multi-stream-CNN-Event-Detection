@@ -1,4 +1,14 @@
-class operator:
+from sklearn.model_selection import KFold
+import numpy as np
+from numpy.random import seed
+seed(1)
+import h5py
+from sklearn.metrics import confusion_matrix, accuracy_score
+from keras.layers.normalization import BatchNormalization 
+from keras.optimizers import Adam
+
+
+class Operator:
 
     def __init__(self):
         self.kf_falls = None
@@ -83,7 +93,7 @@ class operator:
             X = X[allin,...]
             _y = _y[allin]
 
-            set_classifier(num_features) 
+            set_classifier(num_features, 'adam') 
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different
@@ -154,7 +164,7 @@ class operator:
         X = X[allin,...]
         _y = _y[allin]
 
-        set_classifier(num_features)
+        set_classifier(num_features, 'adam')
 
         # ==================== TRAINING ========================     
         # weighting of each class: only the fall class gets a different
@@ -269,7 +279,7 @@ class operator:
             video += 1
             inic += all_samples[x][0]
 
-    def set_classifier(num_features):
+    def set_classifier(num_features, opt_name):
         extracted_features = Input(shape=(num_features,), dtype='float32',
                                    name='input')
         if batch_norm:
@@ -292,8 +302,15 @@ class operator:
                   kernel_initializer='glorot_uniform')(x)
         x = Activation('sigmoid')(x)
         
+        if opt_name == 'adam':
+            adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, 
+                        epsilon=1e-08, decay=0.0005)
+
+
         self.classifier = Model(input=extracted_features, output=x, 
                            name='classifier')
         self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
                            metrics=['accuracy'])
+
+        
 

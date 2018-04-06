@@ -1,6 +1,6 @@
-import architecture
-import operator
-import feature_extractor
+from architech  import *
+from operator import *
+from fextractor import *
 
 # CHANGE THESE VARIABLES
 class0 = 'Falls'
@@ -14,7 +14,7 @@ training_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
 #evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/UR_Fall_OF/'
 evaluation_folder = '/home/ubuntu/gabriel/ssd_drive/Fall_val/'
 
-mean_file = '/home/ubuntu/gabriel/ssd_drive/flow_mean.mat'
+mean_file = 'flow_mean.mat'
 vgg_16_weights = 'weights.h5'
 model_file = 'models/exp_'
 weights_file = 'weights/exp_'
@@ -68,16 +68,17 @@ compute_metrics = True
 threshold = 0.5
 
 
-extractor = feature_extractor(class0, class1, num_features) 
-arch = architecture(arch_name) 
-operator = operator()
+extractor = Fextractor(class0, class1, num_features)
+arch = Architech(arch_name, num_features)
+#operator = Operator()
 
 if do_training:
 
     if extract_features_training:
         extractor.extract(arch.model, training_features_file, 
         training_labels_file, training_samples_file, training_num_file, 
-        features_key, labels_key, samples_key, num_key, training_folder)
+        features_key, labels_key, samples_key, num_key, training_folder, 
+        sliding_height, mean_file)
 
     if cross_training:
         operator.cross_training(training_features_file, training_labels_file, 
@@ -92,8 +93,9 @@ if do_evaluation:
 
     if extract_features_evaluation:
         extractor.extract(arch.model, evaluation_features_file, 
-        evaluation_labels_file, evaluation_samples_file, evaluation_num_file, 
-        features_key, labels_key, samples_key, num_key, evaluation_folder)
+        evaluation_labels_file, evaluation_samples_file, evaluation_num_file,
+        features_key, labels_key, samples_key, num_key, evaluation_folder,
+        sliding_height, mean_file)
 
     operator.prepare_evaluate(evaluation_features_file, evaluation_labels_file,
     features_key, labels_key)
