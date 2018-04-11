@@ -53,22 +53,23 @@ learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
 epochs = 200
+n_splits = 5
+opt = "adam"
 
 save_plots = True
-extract_features_training = False
+extract_features_training = True
 extract_features_evaluation = False
-
 cross_training = False
-
-do_training = False 
-do_evaluation = True 
+do_training = True 
+do_evaluation = True
 compute_metrics = True
 threshold = 0.5
 
 
 extractor = Fextractor(class0, class1, num_features, x_size, y_size)
 arch = Architech(arch_name, num_features, x_size, y_size)
-worker = Worker(threshold)
+worker = Worker(threshold, num_features, epochs, opt, learning_rate, weight_0,
+        mini_batch_size)
 
 if do_training:
 
@@ -80,12 +81,12 @@ if do_training:
 
     if cross_training:
         worker.cross_training(training_features_file, training_labels_file, 
-        features_key, labels_key, n_splits, num_features, weight_0, epochs, 
-        compute_metrics)
+        training_samples_file, training_num_file, features_key, labels_key, 
+        samples_key, num_key, n_splits, compute_metrics, batch_norm, save_plots)
     else:
         worker.training(training_features_file, training_labels_file, 
-        features_key, labels_key, num_features, weight_0, epochs, 
-        compute_metrics)
+        training_samples_file, training_num_file, features_key, labels_key, 
+        samples_key, num_key, compute_metrics, batch_norm, save_plots)
 
 if do_evaluation:
 

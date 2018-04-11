@@ -1,7 +1,5 @@
-from keras.models import Model, Sequential, load_model
-from keras.layers import Input, Convolution2D, MaxPooling2D, Flatten, Activation, Dense, Dropout, ZeroPadding2D
-from keras.optimizers import Adam
-from keras.layers.normalization import BatchNormalization 
+from keras.models import Model, Sequential
+from keras.layers import Convolution2D, MaxPooling2D, Flatten, Activation, Dense, Dropout, ZeroPadding2D
 from keras import backend as K
 K.set_image_dim_ordering('th')
 
