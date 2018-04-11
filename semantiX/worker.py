@@ -10,7 +10,8 @@ from keras.models import load_model
 
 class Worker:
 
-    def __init__(self):
+    def __init__(self, threshold):
+        self.threshold = threshold
         self.kf_falls = None
         self.kf_nofalls = None
         self.falls = None
@@ -46,10 +47,10 @@ class Worker:
             features_key, labels_key, samples_key, num_key):
 
         X, Y, predicted = self.pre_result(features_file, labels_file, 
-                features_key, features_file)
+                features_key, labels_key) 
 
         for i in range(len(predicted)):
-            if predicted[i] < threshold:
+            if predicted[i] < self.threshold:
                 predicted[i] = 0
             else:
                 predicted[i] = 1
@@ -177,11 +178,11 @@ class Worker:
 
             # ==================== EVALUATION ========================        
             if compute_metrics:
-               predicted = self.classifier.predict(np.asarray(X2))
-               self.evaluate(predicted, X2, _y2, sensitivities, specificities, 
-                             fars, mdrs, accuracies)
-               self.check_videos(_y2, predicted, training_samples_file,
-                                 training_num_file, samples_key, num_key)
+                predicted = self.classifier.predict(np.asarray(X2))
+                self.evaluate(predicted, X2, _y2, sensitivities, 
+                specificities, fars, mdrs, accuracies)
+                self.check_videos(_y2, predicted, training_samples_file,
+                training_num_file, samples_key, num_key)
         
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
@@ -246,15 +247,15 @@ class Worker:
         # ==================== EVALUATION ========================        
         if compute_metrics:
             predicted = self.classifier.predict(np.asarray(X2))
-            self.evaluate(predicted, X2, _y2, sensitivities, specificities, 
-                    fars, mdrs, accuracies)
+            self.evaluate(predicted, X2, _y2, sensitivities, 
+            specificities, fars, mdrs, accuracies)
             self.check_videos(_y2, predicted, training_samples_file,
-                    training_num_file, samples_key, num_key)
+            training_num_file, samples_key, num_key)
 
-    def evaluate(self, predicted, X2, _y2, sensitivities, specificities, fars, 
-    mdrs, accuracies):
+    def evaluate(self, predicted, X2, _y2, sensitivities, 
+    specificities, fars, mdrs, accuracies):
         for i in range(len(predicted)):
-            if predicted[i] < threshold:
+            if predicted[i] < self.threshold:
                 predicted[i] = 0
             else:
                 predicted[i] = 1

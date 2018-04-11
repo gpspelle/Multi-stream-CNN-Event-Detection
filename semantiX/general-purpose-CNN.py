@@ -68,7 +68,7 @@ threshold = 0.5
 
 extractor = Fextractor(class0, class1, num_features, x_size, y_size)
 arch = Architech(arch_name, num_features, x_size, y_size)
-worker = Worker()
+worker = Worker(threshold)
 
 if do_training:
 
