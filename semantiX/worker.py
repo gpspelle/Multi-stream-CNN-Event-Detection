@@ -49,6 +49,7 @@ class Worker:
         self.falls.sort()
         self.no_falls.sort()
 
+        # todo: change X and Y variable names
         X = np.concatenate((self.all_features[self.falls, ...], 
             self.all_features[self.no_falls, ...]))
         Y = np.concatenate((self.all_labels[self.falls, ...], 
@@ -61,6 +62,7 @@ class Worker:
     def result(self, features_file, labels_file, samples_file, num_file, 
             features_key, labels_key, samples_key, num_key):
 
+        # todo: change X and Y variable names
         X, Y, predicted = self.pre_result(features_file, labels_file, 
                 features_key, labels_key) 
 
@@ -138,6 +140,7 @@ class Worker:
 
         # CROSS-VALIDATION: Stratified partition of the dataset into 
         # train/test sets
+        # todo : split this line
         for (train_falls, test_falls), (train_nofalls, test_nofalls) in zip(self.kf_falls.split(self.all_features[self.falls, ...]), self.kf_nofalls.split(self.all_features[self.no_falls, ...])):
 
             train_falls = np.asarray(train_falls)
@@ -155,7 +158,6 @@ class Worker:
             _y2 = np.concatenate((self.all_labels[test_falls, ...], 
                 self.all_labels[test_nofalls, ...]))   
             
-            # todo: Is this working? 
             # Balance the number of positive and negative samples so that there
             # is the same amount of each of them
             all0 = np.asarray(np.where(_y==0)[0])
@@ -166,8 +168,8 @@ class Worker:
                 all0 = np.random.choice(all0, len(all1), replace=False)
             allin = np.concatenate((all0.flatten(),all1.flatten()))
             allin.sort()
-            X = X[allin,...]
-            _y = _y[allin]
+            X_t = X[allin,...]
+            _y_t = _y[allin]
 
             self.set_classifier(batch_norm) 
 
@@ -177,11 +179,11 @@ class Worker:
             class_weight = {0: self.weight_0, 1: 1}
             # Batch training
             if self.mini_batch_size == 0:
-                history = self.classifier.fit(X,_y, validation_data=(X2,_y2), 
+                history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
                         batch_size=X.shape[0], epochs=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
             else:
-                history = self.classifier.fit(X,_y, validation_data=(X2,_y2), 
+                history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
                         batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
 
@@ -199,8 +201,6 @@ class Worker:
                 predicted = self.classifier.predict(np.asarray(X2))
                 self.evaluate(predicted, X2, _y2, sensitivities, 
                 specificities, fars, mdrs, accuracies)
-                self.check_videos(_y2, predicted, samples_file, num_file, 
-                samples_key, num_key)
         
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
@@ -229,9 +229,9 @@ class Worker:
         _y = np.concatenate((self.all_labels[self.falls, ...],
             self.all_labels[self.no_falls, ...]))
         
-        # todo: Is this working? 
         # Balance the number of positive and negative samples so that there
         # is the same amount of each of them
+        # todo: check if it's really necessary
         all0 = np.asarray(np.where(_y==0)[0])
         all1 = np.asarray(np.where(_y==1)[0])  
         if len(all0) < len(all1):
@@ -240,22 +240,21 @@ class Worker:
             all0 = np.random.choice(all0, len(all1), replace=False)
         allin = np.concatenate((all0.flatten(),all1.flatten()))
         allin.sort()
-        X = X[allin,...]
-        _y = _y[allin]
+        X_t = X[allin,...]
+        _y_t = _y[allin]
 
         self.set_classifier(batch_norm)
 
         # ==================== TRAINING ========================     
-        # weighting of each class: only the fall class gets a different
-        # weight
+        # weighting of each class: only the fall class gets a different weight
         class_weight = {0: self.weight_0, 1: 1}
         # Batch training
         if self.mini_batch_size == 0:
-            history = self.classifier.fit(X,_y, validation_split=0.15, 
+            history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
                     batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
                     class_weight=class_weight)
         else:
-            history = self.classifier.fit(X,_y, validation_split=0.15, 
+            history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
                     batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                     shuffle='batch', class_weight=class_weight)
 
@@ -270,8 +269,6 @@ class Worker:
             predicted = self.classifier.predict(np.asarray(X))
             self.evaluate(predicted, X, _y, sensitivities, 
             specificities, fars, mdrs, accuracies)
-            self.check_videos(_y, predicted, samples_file, num_file, 
-            samples_key, num_key)
 
     def evaluate(self, predicted, X2, _y2, sensitivities, 
     specificities, fars, mdrs, accuracies):
