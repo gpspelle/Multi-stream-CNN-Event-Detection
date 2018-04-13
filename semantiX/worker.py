@@ -43,8 +43,8 @@ class Worker:
         self.all_features = h5features[features_key]
         self.all_labels = np.asarray(h5labels[labels_key])
 
-        self.falls = np.asarray(np.where(all_labels==0)[0])
-        self.no_falls = np.asarray(np.where(all_labels==1)[0])
+        self.falls = np.asarray(np.where(self.all_labels==0)[0])
+        self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
    
         self.falls.sort()
         self.no_falls.sort()
@@ -212,7 +212,7 @@ class Worker:
         print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
                                                  np.std(accuracies)))
 
-    def training(features_file, labels_file, samples_file, num_file, 
+    def training(self, features_file, labels_file, samples_file, num_file, 
     features_key, labels_key, samples_key, num_key, compute_metrics, 
     batch_norm, save_plots):
         sensitivities = []
@@ -267,10 +267,10 @@ class Worker:
 
         # ==================== EVALUATION ========================        
         if compute_metrics:
-            predicted = self.classifier.predict(np.asarray(X2))
-            self.evaluate(predicted, X2, _y2, sensitivities, 
+            predicted = self.classifier.predict(np.asarray(X))
+            self.evaluate(predicted, X, _y, sensitivities, 
             specificities, fars, mdrs, accuracies)
-            self.check_videos(_y2, predicted, samples_file, num_file, 
+            self.check_videos(_y, predicted, samples_file, num_file, 
             samples_key, num_key)
 
     def evaluate(self, predicted, X2, _y2, sensitivities, 
