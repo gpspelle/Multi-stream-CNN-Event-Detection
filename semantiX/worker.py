@@ -4,13 +4,59 @@ from numpy.random import seed
 seed(1)
 import h5py
 from sklearn.metrics import confusion_matrix, accuracy_score
+from keras.layers import Input, Activation, Dense, Dropout
 from keras.layers.normalization import BatchNormalization 
 from keras.optimizers import Adam
-from keras.models import load_model
+from keras.models import Model, load_model
+from keras.layers.advanced_activations import ELU
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+
+''' This code is based on Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, 
+    I. (2017). "Vision-Based Fall Detection with Convolutional Neural Networks"
+    Wireless Communications and Mobile Computing, 2017.
+    Also, new features were added by Gabriel Pellegrino Silva working in 
+    Semantix. 
+'''
+
+''' Documentation: class Worker
+    
+    This class has a few methods:
+
+    pre_result
+    result
+    pre_training_cross
+    pre_training
+    cross_training
+    training
+    evaluate
+    check_videos
+    plot_training_info
+
+    The methods that should be called outside of this class are:
+
+    result: show the results of a prediction based on a feed forward on the
+    classifier of this worker.
+
+    cross_training: perform a n_split cross_training on files passed by
+    argument
+
+    training: perfom a simple training on files passsed by argument
+'''
 
 class Worker:
 
-    def __init__(self):
+    def __init__(self, threshold, num_features, epochs, opt, learning_rate, 
+    weight_0, mini_batch_size):
+
+        self.threshold = threshold
+        self.num_features = num_features
+        self.epochs = epochs
+        self.opt = opt
+        self.learning_rate = learning_rate
+        self.weight_0 = weight_0
+        self.mini_batch_size = mini_batch_size
         self.kf_falls = None
         self.kf_nofalls = None
         self.falls = None
@@ -26,17 +72,20 @@ class Worker:
 
         # all_features will contain all the feature vectors extracted from
         # optical flow images
-        all_features = h5features[features_key]
-        all_labels = np.asarray(h5labels[labels_key])
+        self.all_features = h5features[features_key]
+        self.all_labels = np.asarray(h5labels[labels_key])
 
-        zeroes = np.asarray(np.where(all_labels==0)[0])
-        ones = np.asarray(np.where(all_labels==1)[0])
+        self.falls = np.asarray(np.where(self.all_labels==0)[0])
+        self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
    
-        zeroes.sort()
-        ones.sort()
+        self.falls.sort()
+        self.no_falls.sort()
 
-        X = np.concatenate((all_features[zeroes, ...], all_features[ones, ...]))
-        Y = np.concatenate((all_labels[zeroes, ...], all_labels[ones, ...]))
+        # todo: change X and Y variable names
+        X = np.concatenate((self.all_features[self.falls, ...], 
+            self.all_features[self.no_falls, ...]))
+        Y = np.concatenate((self.all_labels[self.falls, ...], 
+            self.all_labels[self.no_falls, ...]))
        
         predicted = self.classifier.predict(np.asarray(X))
 
@@ -45,11 +94,12 @@ class Worker:
     def result(self, features_file, labels_file, samples_file, num_file, 
             features_key, labels_key, samples_key, num_key):
 
+        # todo: change X and Y variable names
         X, Y, predicted = self.pre_result(features_file, labels_file, 
-                features_key, features_file)
+                features_key, labels_key) 
 
         for i in range(len(predicted)):
-            if predicted[i] < threshold:
+            if predicted[i] < self.threshold:
                 predicted[i] = 0
             else:
                 predicted[i] = 1
@@ -86,10 +136,10 @@ class Worker:
     labels_key, n_splits):
 
         self.pre_training(features_file, labels_file, features_key, labels_key)
-        
         # Use a 'n_splits' fold cross-validation
         self.kf_falls = KFold(n_splits=n_splits)
         self.kf_nofalls = KFold(n_splits=n_splits)
+        
 
     def pre_training(self, features_file, labels_file, features_key, labels_key):
         h5features = h5py.File(features_file, 'r')
@@ -97,17 +147,18 @@ class Worker:
         
         # all_features will contain all the feature vectors extracted from 
         # optical flow images
-        all_features = h5features[features_key]
-        all_labels = np.asarray(h5labels[labels_key])
+        self.all_features = h5features[features_key]
+        self.all_labels = np.asarray(h5labels[labels_key])
         
         # Falls are related to 0 and not falls to 1
-        self.falls = np.asarray(np.where(all_labels==0)[0])
-        self.no_falls = np.asarray(np.where(all_labels==1)[0])
+        self.falls = np.asarray(np.where(self.all_labels==0)[0])
+        self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
         self.falls.sort()
         self.no_falls.sort() 
 
-    def cross_training(features_file, labels_file, features_key, labels_key,
-    n_splits, num_features, weight_0, epochs, compute_metrics):
+    def cross_training(self, features_file, labels_file, samples_file, num_file,
+    features_key, labels_key, samples_key, num_key, n_splits, compute_metrics, 
+    batch_norm, save_plots):
 
         self.pre_training_cross(features_file, labels_file, features_key, 
                                 labels_key, n_splits)
@@ -121,6 +172,7 @@ class Worker:
 
         # CROSS-VALIDATION: Stratified partition of the dataset into 
         # train/test sets
+        # todo : split this line
         for (train_falls, test_falls), (train_nofalls, test_nofalls) in zip(self.kf_falls.split(self.all_features[self.falls, ...]), self.kf_nofalls.split(self.all_features[self.no_falls, ...])):
 
             train_falls = np.asarray(train_falls)
@@ -133,12 +185,11 @@ class Worker:
                 self.all_features[train_nofalls, ...]))
             _y = np.concatenate((self.all_labels[train_falls, ...],
                 self.all_labels[train_nofalls, ...]))
-            X2 = np.concatenate((self.all_features[test_index_falls, ...],
-                self.all_features[test_index_nofalls, ...]))
+            X2 = np.concatenate((self.all_features[test_falls, ...],
+                self.all_features[test_nofalls, ...]))
             _y2 = np.concatenate((self.all_labels[test_falls, ...], 
                 self.all_labels[test_nofalls, ...]))   
             
-            # todo: Is this working? 
             # Balance the number of positive and negative samples so that there
             # is the same amount of each of them
             all0 = np.asarray(np.where(_y==0)[0])
@@ -149,25 +200,27 @@ class Worker:
                 all0 = np.random.choice(all0, len(all1), replace=False)
             allin = np.concatenate((all0.flatten(),all1.flatten()))
             allin.sort()
-            X = X[allin,...]
-            _y = _y[allin]
+            X_t = X[allin,...]
+            _y_t = _y[allin]
 
-            self.set_classifier(num_features, 'adam') 
+            self.set_classifier(batch_norm) 
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different
             # weight
-            class_weight = {0: weight_0, 1: 1}
+            class_weight = {0: self.weight_0, 1: 1}
             # Batch training
-            if mini_batch_size == 0:
-                history = self.classifier.fit(X,_y, validation_data=(X2,_y2), 
-                        batch_size=X.shape[0], epochs=epochs, shuffle='batch',
-                        class_weight=class_weight)
-            else:
-                history = self.classifier.fit(X,_y, validation_data=(X2,_y2), 
-                        batch_size=mini_batch_size, nb_epoch=epochs, 
+            if self.mini_batch_size == 0:
+                history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
+                        batch_size=X.shape[0], epochs=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
-            plot_training_info(exp, ['accuracy', 'loss'], save_plots, 
+            else:
+                history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
+                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                        shuffle='batch', class_weight=class_weight)
+
+            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, batch_norm, self.weight_0)
+            self.plot_training_info(exp, ['accuracy', 'loss'], save_plots, 
                                history.history)
 
             # Store only the first classifier
@@ -177,11 +230,9 @@ class Worker:
 
             # ==================== EVALUATION ========================        
             if compute_metrics:
-               predicted = self.classifier.predict(np.asarray(X2))
-               self.evaluate(predicted, X2, _y2, sensitivities, specificities, 
-                             fars, mdrs, accuracies)
-               self.check_videos(_y2, predicted, training_samples_file,
-                                 training_num_file, samples_key, num_key)
+                predicted = self.classifier.predict(np.asarray(X2))
+                self.evaluate(predicted, X2, _y2, sensitivities, 
+                specificities, fars, mdrs, accuracies)
         
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
@@ -193,8 +244,9 @@ class Worker:
         print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
                                                  np.std(accuracies)))
 
-    def training(features_file, labels_file, features_key, labels_key, 
-            num_features, weight_0, epochs, compute_metrics):
+    def training(self, features_file, labels_file, samples_file, num_file, 
+    features_key, labels_key, samples_key, num_key, compute_metrics, 
+    batch_norm, save_plots):
         sensitivities = []
         specificities = []
         fars = []
@@ -209,9 +261,9 @@ class Worker:
         _y = np.concatenate((self.all_labels[self.falls, ...],
             self.all_labels[self.no_falls, ...]))
         
-        # todo: Is this working? 
         # Balance the number of positive and negative samples so that there
         # is the same amount of each of them
+        # todo: check if it's really necessary
         all0 = np.asarray(np.where(_y==0)[0])
         all1 = np.asarray(np.where(_y==1)[0])  
         if len(all0) < len(all1):
@@ -220,41 +272,40 @@ class Worker:
             all0 = np.random.choice(all0, len(all1), replace=False)
         allin = np.concatenate((all0.flatten(),all1.flatten()))
         allin.sort()
-        X = X[allin,...]
-        _y = _y[allin]
+        X_t = X[allin,...]
+        _y_t = _y[allin]
 
-        self.set_classifier(num_features, 'adam')
+        self.set_classifier(batch_norm)
 
         # ==================== TRAINING ========================     
-        # weighting of each class: only the fall class gets a different
-        # weight
-        class_weight = {0: weight_0, 1: 1}
+        # weighting of each class: only the fall class gets a different weight
+        class_weight = {0: self.weight_0, 1: 1}
         # Batch training
-        if mini_batch_size == 0:
-            history = self.classifier.fit(X,_y, validation_split=0.15, 
-                    batch_size=X.shape[0], epochs=epochs, shuffle='batch',
+        if self.mini_batch_size == 0:
+            history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
+                    batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
                     class_weight=class_weight)
         else:
-            history = self.classifier.fit(X,_y, validation_split=0.15, 
-                    batch_size=mini_batch_size, nb_epoch=epochs, 
+            history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
+                    batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                     shuffle='batch', class_weight=class_weight)
-        plot_training_info(exp, ['accuracy', 'loss'], save_plots, 
+
+        exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, batch_norm, self.weight_0)
+        self.plot_training_info(exp, ['accuracy', 'loss'], save_plots, 
                            history.history)
 
         self.classifier.save('urfd_classifier.h5')
 
         # ==================== EVALUATION ========================        
         if compute_metrics:
-            predicted = self.classifier.predict(np.asarray(X2))
-            self.evaluate(predicted, X2, _y2, sensitivities, specificities, 
-                    fars, mdrs, accuracies)
-            self.check_videos(_y2, predicted, training_samples_file,
-                    training_num_file, samples_key, num_key)
+            predicted = self.classifier.predict(np.asarray(X))
+            self.evaluate(predicted, X, _y, sensitivities, 
+            specificities, fars, mdrs, accuracies)
 
-    def evaluate(self, predicted, X2, _y2, sensitivities, specificities, fars, 
-    mdrs, accuracies):
+    def evaluate(self, predicted, X2, _y2, sensitivities, 
+    specificities, fars, mdrs, accuracies):
         for i in range(len(predicted)):
-            if predicted[i] < threshold:
+            if predicted[i] < self.threshold:
                 predicted[i] = 0
             else:
                 predicted[i] = 1
@@ -310,6 +361,7 @@ class Worker:
         msage_not_fall = list("###### Not fall videos ")
         msage_not_fall.append(str(all_num[1][0]))
         msage_not_fall.append(" ######")
+        print(all_num)
 
         for x in range(len(all_samples)):
             correct = 1
@@ -319,7 +371,7 @@ class Worker:
 
             if x == 0:
                 print(''.join(msage_fall))
-            elif x == all_num[1][0]:
+            elif x == all_num[0][0]:
                 print(''.join(msage_not_fall))
                 video = 1 
 
@@ -331,15 +383,15 @@ class Worker:
                     correct = 0
 
             if correct == 1:
-               print("Hit video: " + str(video))
+               print("Hit video:      " + str(video))
             else:
-               print("Miss video: " + str(video))
+               print("Miss video:     " + str(video))
 
             video += 1
             inic += all_samples[x][0]
 
-    def set_classifier(num_features, opt_name):
-        extracted_features = Input(shape=(num_features,), dtype='float32',
+    def set_classifier(self, batch_norm):
+        extracted_features = Input(shape=(self.num_features,), dtype='float32',
                                    name='input')
         if batch_norm:
             x = BatchNormalization(axis=-1, momentum=0.99, 
@@ -349,7 +401,7 @@ class Worker:
             x = ELU(alpha=1.0)(extracted_features)
        
         x = Dropout(0.9)(x)
-        x = Dense(num_features, name='fc2', 
+        x = Dense(self.num_features, name='fc2', 
                   kernel_initializer='glorot_uniform')(x)
         if batch_norm:
             x = BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001)(x)
@@ -361,8 +413,8 @@ class Worker:
                   kernel_initializer='glorot_uniform')(x)
         x = Activation('sigmoid')(x)
         
-        if opt_name == 'adam':
-            adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, 
+        if self.opt == 'adam':
+            adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
                         epsilon=1e-08, decay=0.0005)
 
         self.classifier = Model(input=extracted_features, output=x, 
@@ -370,3 +422,46 @@ class Worker:
         self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
                            metrics=['accuracy'])
 
+    def plot_training_info(self, case, metrics, save, history):
+        '''
+        Function to create plots for train and validation loss and accuracy
+        Input:
+        * case: name for the plot, an 'accuracy.png' or 'loss.png' will be concatenated after the name.
+        * metrics: list of metrics to store: 'loss' and/or 'accuracy'
+        * save: boolean to store the plots or only show them.
+        * history: History object returned by the Keras fit function.
+        '''
+        plt.ioff()
+        if 'accuracy' in metrics:     
+            fig = plt.figure()
+            plt.plot(history['acc'])
+            plt.plot(history['val_acc'])
+            plt.title('model accuracy')
+            plt.ylabel('accuracy')
+            plt.xlabel('epoch')
+            plt.legend(['train', 'val'], loc='upper left')
+            if save == True:
+                plt.savefig(case + 'accuracy.png')
+                plt.gcf().clear()
+            else:
+                plt.show()
+            plt.close(fig)
+
+        # summarize history for loss
+        if 'loss' in metrics:
+            fig = plt.figure()
+            plt.plot(history['loss'])
+            plt.plot(history['val_loss'])
+            plt.title('model loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            #plt.ylim(1e-3, 1e-2)
+            plt.yscale("log")
+            plt.legend(['train', 'val'], loc='upper left')
+            if save == True:
+                plt.savefig(case + 'loss.png')
+                plt.gcf().clear()
+            else:
+                plt.show()
+            plt.close(fig)
+     
