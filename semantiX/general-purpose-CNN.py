@@ -68,8 +68,10 @@ threshold = 0.5
 
 extractor = Fextractor(class0, class1, num_features, x_size, y_size)
 arch = Architech(arch_name, num_features, x_size, y_size)
+arch.weight_init(vgg_16_weights) 
 worker = Worker(threshold, num_features, epochs, opt, learning_rate, weight_0,
         mini_batch_size)
+
 
 if do_training:
 

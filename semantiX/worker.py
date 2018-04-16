@@ -13,6 +13,38 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
+''' This code is based on Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, 
+    I. (2017). "Vision-Based Fall Detection with Convolutional Neural Networks"
+    Wireless Communications and Mobile Computing, 2017.
+    Also, new features were added by Gabriel Pellegrino Silva working in 
+    Semantix. 
+'''
+
+''' Documentation: class Worker
+    
+    This class has a few methods:
+
+    pre_result
+    result
+    pre_training_cross
+    pre_training
+    cross_training
+    training
+    evaluate
+    check_videos
+    plot_training_info
+
+    The methods that should be called outside of this class are:
+
+    result: show the results of a prediction based on a feed forward on the
+    classifier of this worker.
+
+    cross_training: perform a n_split cross_training on files passed by
+    argument
+
+    training: perfom a simple training on files passsed by argument
+'''
+
 class Worker:
 
     def __init__(self, threshold, num_features, epochs, opt, learning_rate, 

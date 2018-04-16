@@ -1,11 +1,38 @@
+import h5py
+import numpy as np
 from keras.models import Model, Sequential
-from keras.layers import Convolution2D, MaxPooling2D, Flatten, Activation, Dense, Dropout, ZeroPadding2D
+from keras.layers import Convolution2D, MaxPooling2D, Flatten, Activation, \
+                         Dense, Dropout, ZeroPadding2D
 from keras import backend as K
 K.set_image_dim_ordering('th')
+
+''' This code is based on Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, 
+    I. (2017). "Vision-Based Fall Detection with Convolutional Neural Networks"
+    Wireless Communications and Mobile Computing, 2017.
+    Also, new features were added by Gabriel Pellegrino Silva working in 
+    Semantix. 
+'''
+
+''' Documentation: class Architech
+    
+    This class has only one method:
+
+    weight_init
+
+    The methods that should be called outside of this class are:
+
+    weight_init: receives as parameter a 
+
+'''
 
 class Architech: 
 
     def __init__(self, name, num_features, x_size, y_size):
+        '''
+        Input: TODO
+        Output: TODO
+        '''
+
         self.name = name
         self.model = None
         self.layers_name = []
@@ -48,13 +75,15 @@ class Architech:
             self.model.add(Dense(self.num_features, name='fc6', 
                 kernel_initializer='glorot_uniform'))
 
-    def weight_init(weights_file):
+    def weight_init(self, weights_file):
         '''
         Input:
         * weights_file: path to a hdf5 file containing weights and biases to a
         trained network
         
+        Output: TODO
         '''
+
         h5 = h5py.File(weights_file)
         
         layer_dict = dict([(self.layers_name, layer) 
