@@ -56,20 +56,46 @@ class Architech:
                            name='conv1_2'))
             self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
-            filters = [128, 256, 512, 512]
-            layer_p = 2
-            for num_filters in filters: 
-                layer = self.layers_name[layer_p]
-                self.model.add(ZeroPadding2D((1, 1)))
-                self.model.add(Convolution2D(num_filters, (3, 3), 
-                               activation='relu', name=layer))
-                layer_p += 1
-                self.model.add(ZeroPadding2D((1, 1)))
-                layer = self.layers_name[layer_p]
-                self.model.add(Convolution2D(num_filters, (3, 3),
-                               activation='relu', name=layer))
-                layer_p += 1
-                self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(128, (3, 3), activation='relu',
+                      name='conv2_1'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(128, (3, 3), activation='relu', 
+                      name='conv2_2'))
+            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(256, (3, 3), activation='relu',
+                      name='conv3_1'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(256, (3, 3), activation='relu',
+                      name='conv3_2'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(256, (3, 3), activation='relu', 
+                      name='conv3_3'))
+            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
+                      name='conv4_1'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
+                      name='conv4_2'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
+                      name='conv4_3'))
+            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
+                      name='conv5_1'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
+                      name='conv5_2'))
+            self.model.add(ZeroPadding2D((1, 1)))
+            self.model.add(Convolution2D(512, (3, 3), activation='relu', 
+                      name='conv5_3'))
+            self.model.add(MaxPooling2D((2, 2), strides=(2, 2)))
 
             self.model.add(Flatten())
             self.model.add(Dense(self.num_features, name='fc6', 
@@ -86,7 +112,7 @@ class Architech:
 
         h5 = h5py.File(weights_file)
         
-        layer_dict = dict([(self.layers_name, layer) 
+        layer_dict = dict([(layer.name, layer) 
                             for layer in self.model.layers])
 
         # Copy the weights stored in the 'weights_file' file to the feature 

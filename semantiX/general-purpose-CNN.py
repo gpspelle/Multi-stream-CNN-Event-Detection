@@ -95,8 +95,6 @@ worker = Worker(threshold, num_features, epochs, opt, learning_rate, weight_0,
 if do_training:
 
     # If you need to extract features from your data to train
-if do_training:
-
     if extract_features_training:
         extractor.extract(arch.model, training_features_file, 
         training_labels_file, training_samples_file, training_num_file, 
@@ -118,8 +116,6 @@ if do_evaluation:
 
     # If you want to check the results on a different data than what you used
     # for training
-if do_evaluation:
-
     if extract_features_evaluation:
         extractor.extract(arch.model, evaluation_features_file, 
         evaluation_labels_file, evaluation_samples_file, evaluation_num_file,

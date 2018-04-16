@@ -77,6 +77,8 @@ class Fextractor:
         * mean_file: mean value for CNN file
         '''
 
+        flow_mean = sio.loadmat(mean_file)['image_mean']
+
         # Fill the folders and classes arrays with all the paths to the data
         fall_videos = [f for f in os.listdir(data_folder + self.class0) 
                        if os.path.isdir(os.path.join(data_folder + 
