@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import scipy.io as sio
 import os
@@ -28,6 +29,7 @@ import gc
     later these features will be used for training these last two layers.
 '''
 
+
 class Fextractor:
 
     def __init__(self, class0, class1, num_features, x_size, y_size):
@@ -49,10 +51,23 @@ class Fextractor:
         for x,y in zip(list1,list2):
             yield x, y
 
-    def extract(self, extractor_model, features_file, labels_file,
-                        samples_file, num_file, features_key, labels_key,
-                        samples_key, num_key, data_folder, sliding_height,
-                        mean_file):
+    def extract(self, extract_id, extractor_model, data_folder):
+
+        '''
+            todo: import the extractor_model
+        '''
+        
+        features_file = "features_" + extract_id
+        labels_file = "labels_" + extract_id
+        samples_file = "samples_" + extract_id
+        num_file = "num_" + extract_id
+
+        features_key = 'features' 
+        labels_key = 'labels'
+        samples_key = 'samples'
+        num_key = 'num'
+        sliding_heigth = 10
+
         '''
         Function to load the optical flow stacks, do a feed-forward through 
         the feature extractor (VGG16) and store the output feature vectors in 
@@ -179,3 +194,25 @@ class Fextractor:
         h5labels.close()
         h5samples.close()
         h5num_classes.close()
+
+if __name__ == '__main__':
+    argp = argparse.ArgumentParser(description='Do feature extraction tasks')
+    argp.add_argument("-data", dest='data_folder', type=str, nargs='?', 
+            help='Usage: -data <path_to_your_data_folder>', required=True)
+    argp.add_argument("-class", dest='classes', type=str, nargs='+', 
+            help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
+            required=True)
+    argp.add_argument("-num_feat", dest='num_features', type=int, nargs='?',
+            help='Usage: -num_feat <size_of_features_array>', required=True)
+    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
+            help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
+    argp.add_argument("-model", dest='model', type=str, nargs='?',
+            help='Usage: -model_name <path_to_your_stored_model>', 
+            required=True)
+    argp.add_argument("-id", dest='extract_id', type=str, nargs='?',
+            help='Usage: -id <identifier_to_this_features>', required=True)
+    args = argp.parse_args()
+
+    fextractor = Fextractor(args.classes[0], args.classes[1], args.num_features,
+                            args, args.input_dim[0], args.input_dim[1])
+    fextractor.extract(args.id, args.model, args.data_folder)
