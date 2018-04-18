@@ -1,3 +1,4 @@
+import argparse
 import h5py
 import numpy as np
 from keras.models import Model, Sequential
@@ -133,3 +134,23 @@ class Architech:
         K.set_value(layer_dict[layer].kernel, w2)
         K.set_value(layer_dict[layer].bias, b2)
 
+if __name__ == '__main__':
+    argp = argparse.ArgumentParser(description='Do architecture tasks')
+    argp.add_argument("-num_feat", dest='num_features', type=int, nargs='?',
+            help='Usage: -num_feat <size_of_features_array>', required=True)
+    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
+            help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
+    argp.add_argument("-model", dest='model', type=str, nargs='?',
+            help='Usage: -model_name <path_to_your_stored_model>', 
+            required=True)
+    argp.add_argument("-weight", dest='weight', type=str, nargs='?', 
+            help='Usage: -weight <path_to_your_weight_file>', required=True)
+    args = argp.parse_args()
+
+    arch = Architech(args.model, args.num_features, args.input_dim[0], 
+                     args.input_dim[1])
+    arch.weight_init(args.weight)
+
+    '''
+        todo: store this arch
+    '''

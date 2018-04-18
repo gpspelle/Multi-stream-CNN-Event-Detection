@@ -214,5 +214,5 @@ if __name__ == '__main__':
     args = argp.parse_args()
 
     fextractor = Fextractor(args.classes[0], args.classes[1], args.num_features,
-                            args, args.input_dim[0], args.input_dim[1])
+                            args.input_dim[0], args.input_dim[1])
     fextractor.extract(args.id, args.model, args.data_folder)
