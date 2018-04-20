@@ -151,6 +151,5 @@ if __name__ == '__main__':
                      args.input_dim[1])
     arch.weight_init(args.weight)
 
-    '''
-        todo: store this arch
-    '''
+    arch.save(args.model + '.h5')
+    del arch

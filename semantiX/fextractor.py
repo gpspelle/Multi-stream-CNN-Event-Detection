@@ -1,3 +1,4 @@
+from keras.models import load_model
 import argparse
 import numpy as np
 import scipy.io as sio
@@ -51,11 +52,9 @@ class Fextractor:
         for x,y in zip(list1,list2):
             yield x, y
 
-    def extract(self, extract_id, extractor_model, data_folder):
+    def extract(self, extract_id, model, data_folder):
 
-        '''
-            todo: import the extractor_model
-        '''
+        extractor_model = load_model(model + '.h5')
         
         features_file = "features_" + extract_id
         labels_file = "labels_" + extract_id
