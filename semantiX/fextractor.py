@@ -206,7 +206,7 @@ if __name__ == '__main__':
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
     argp.add_argument("-model", dest='model', type=str, nargs='?',
-            help='Usage: -model_name <path_to_your_stored_model>', 
+            help='Usage: -model <path_to_your_stored_model>', 
             required=True)
     argp.add_argument("-id", dest='extract_id', type=str, nargs='?',
             help='Usage: -id <identifier_to_this_features>', required=True)

@@ -141,11 +141,15 @@ if __name__ == '__main__':
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
     argp.add_argument("-model", dest='model', type=str, nargs='?',
-            help='Usage: -model_name <path_to_your_stored_model>', 
+            help='Usage: -model <path_to_your_stored_model>', 
             required=True)
     argp.add_argument("-weight", dest='weight', type=str, nargs='?', 
             help='Usage: -weight <path_to_your_weight_file>', required=True)
     args = argp.parse_args()
+
+'''
+    todo: check if user entered a valid network name
+'''
 
     arch = Architech(args.model, args.num_features, args.input_dim[0], 
                      args.input_dim[1])

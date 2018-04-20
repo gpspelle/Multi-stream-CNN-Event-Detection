@@ -1,4 +1,5 @@
 import argparse
+import sys
 from sklearn.model_selection import KFold
 import numpy as np
 from numpy.random import seed
@@ -23,24 +24,39 @@ from keras.layers.advanced_activations import ELU
     This class has a few methods:
 
     pre_result
-    pre_training_cross
-    pre_training
-    cross_training
-    training
+    pre_train_cross
+    pre_train
+    cross_train
+    train
     evaluate
     plot_training_info
 
     The methods that should be called outside of this class are:
 
-    cross_training: perform a n_split cross_training on files passed by
+    cross_train: perform a n_split cross_train on files passed by
     argument
 
-    training: perfom a simple training on files passsed by argument
+    train: perfom a simple trainment on files passsed by argument
 '''
 class Train:
 
     def __init__(self, threshold, num_features, epochs, opt, learning_rate, 
-    weight_0, mini_batch_size):
+    weight_0, mini_batch_size, extract_id, batch_norm):
+
+        '''
+            Parameters needed to train
+
+        '''
+
+        self.features_key = 'features' 
+        self.labels_key = 'labels'
+        self.samples_key = 'samples'
+        self.num_key = 'num'
+
+        self.features_file = "features_" + extract_id
+        self.labels_file = "labels_" + extract_id
+        self.samples_file = "samples_" + extract_id
+        self.num_file = "num_" + extract_id
 
         self.threshold = threshold
         self.num_features = num_features
@@ -49,29 +65,31 @@ class Train:
         self.learning_rate = learning_rate
         self.weight_0 = weight_0
         self.mini_batch_size = mini_batch_size
+        self.batch_norm = batch_norm 
+
+
         self.kf_falls = None
         self.kf_nofalls = None
         self.falls = None
         self.no_falls = None
         self.classifier = None
 
-    def pre_training_cross(self, features_file, labels_file, features_key, 
-    labels_key, n_splits):
+    def pre_cross_train(self, n_splits):
 
-        self.pre_training(features_file, labels_file, features_key, labels_key)
+        self.pre_train()
         # Use a 'n_splits' fold cross-validation
         self.kf_falls = KFold(n_splits=n_splits)
         self.kf_nofalls = KFold(n_splits=n_splits)
         
 
-    def pre_training(self, features_file, labels_file, features_key, labels_key):
-        h5features = h5py.File(features_file, 'r')
-        h5labels = h5py.File(labels_file, 'r')
+    def pre_train(self):
+        h5features = h5py.File(self.features_file, 'r')
+        h5labels = h5py.File(self.labels_file, 'r')
         
         # all_features will contain all the feature vectors extracted from 
         # optical flow images
-        self.all_features = h5features[features_key]
-        self.all_labels = np.asarray(h5labels[labels_key])
+        self.all_features = h5features[self.features_key]
+        self.all_labels = np.asarray(h5labels[self.labels_key])
         
         # Falls are related to 0 and not falls to 1
         self.falls = np.asarray(np.where(self.all_labels==0)[0])
@@ -79,12 +97,9 @@ class Train:
         self.falls.sort()
         self.no_falls.sort() 
 
-    def cross_training(self, features_file, labels_file, samples_file, num_file,
-    features_key, labels_key, samples_key, num_key, n_splits, compute_metrics, 
-    batch_norm, save_plots):
+    def cross_train(self, n_splits):
 
-        self.pre_training_cross(features_file, labels_file, features_key, 
-                                labels_key, n_splits)
+        self.pre_cross_train(n_splits)
         sensitivities = []
         specificities = []
         fars = []
@@ -126,7 +141,7 @@ class Train:
                 X_t = X[allin,...]
                 _y_t = _y[allin]
 
-                self.set_classifier(batch_norm) 
+                self.set_classifier() 
 
                 # ==================== TRAINING ========================     
                 # weighting of each class: only the fall class gets a different
@@ -142,8 +157,8 @@ class Train:
                             batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                             shuffle='batch', class_weight=class_weight)
 
-                exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, batch_norm, self.weight_0)
-                self.plot_training_info(exp, ['accuracy', 'loss'], save_plots, 
+                exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+                self.plot_training_info(exp, ['accuracy', 'loss'], True, 
                                    history.history)
 
                 # Store only the first classifier
@@ -151,11 +166,10 @@ class Train:
                     self.classifier.save('urfd_classifier.h5')
                     first = 1
 
-                # ==================== EVALUATION ========================        
-                if compute_metrics:
-                    predicted = self.classifier.predict(np.asarray(X2))
-                    self.evaluate(predicted, X2, _y2, sensitivities, 
-                    specificities, fars, mdrs, accuracies)
+                # ==================== EVALUATION ======================== 
+                predicted = self.classifier.predict(np.asarray(X2))
+                self.evaluate(predicted, X2, _y2, sensitivities, 
+                specificities, fars, mdrs, accuracies)
             
             print('5-FOLD CROSS-VALIDATION RESULTS ===================')
             print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
@@ -167,16 +181,14 @@ class Train:
             print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
                                                      np.std(accuracies)))
 
-        def training(self, features_file, labels_file, samples_file, num_file, 
-        features_key, labels_key, samples_key, num_key, compute_metrics, 
-        batch_norm, save_plots):
+        def train(self):
             sensitivities = []
             specificities = []
             fars = []
             mdrs = []
             accuracies = []
 
-            self.pre_training(features_file, labels_file, features_key, labels_key)
+            self.pre_train()
 
             # todo: change this X, _y
             X = np.concatenate((self.all_features[self.falls, ...], 
@@ -198,7 +210,7 @@ class Train:
             X_t = X[allin,...]
             _y_t = _y[allin]
 
-            self.set_classifier(batch_norm)
+            self.set_classifier()
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different weight
@@ -213,17 +225,16 @@ class Train:
                         batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
 
-            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, batch_norm, self.weight_0)
-            self.plot_training_info(exp, ['accuracy', 'loss'], save_plots, 
+            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
                                history.history)
 
             self.classifier.save('urfd_classifier.h5')
 
             # ==================== EVALUATION ========================        
-            if compute_metrics:
-                predicted = self.classifier.predict(np.asarray(X))
-                self.evaluate(predicted, X, _y, sensitivities, 
-                specificities, fars, mdrs, accuracies)
+            predicted = self.classifier.predict(np.asarray(X))
+            self.evaluate(predicted, X, _y, sensitivities, 
+            specificities, fars, mdrs, accuracies)
 
         def evaluate(self, predicted, X2, _y2, sensitivities, 
         specificities, fars, mdrs, accuracies):
@@ -265,10 +276,10 @@ class Train:
             mdrs.append(fnr)
             accuracies.append(accuracy)
 
-        def set_classifier(self, batch_norm):
+        def set_classifier(self):
             extracted_features = Input(shape=(self.num_features,), dtype='float32',
                                        name='input')
-            if batch_norm:
+            if self.batch_norm:
                 x = BatchNormalization(axis=-1, momentum=0.99, 
                                        epsilon=0.001)(extracted_features)
                 x = Activation('relu')(x)
@@ -278,7 +289,7 @@ class Train:
             x = Dropout(0.9)(x)
             x = Dense(self.num_features, name='fc2', 
                       kernel_initializer='glorot_uniform')(x)
-            if batch_norm:
+            if self.batch_norm:
                 x = BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001)(x)
                 x = Activation('relu')(x)
             else:
@@ -345,25 +356,70 @@ if __name__ == '__main__':
     argp.add_argument("-actions", dest='actions', type=str, nargs='+',
             help='Usage: -actions <train/cross_train>
                   Example: -actions train result
-                           -actions cross_train', required=True)
-    argp.add_argument("-data", dest='data_folder', type=str, nargs='?', 
-            help='Usage: -data <path_to_your_data_folder>', required=True)
-    argp.add_argument("-class", dest='classes', type=str, nargs='+', 
-            help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
-            required=True)
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs='?',
+                           -actions cross-train', required=True)
+    args = argp.parse_args()
+
+    if args.actions == 'cross-train':
+        argp.add_argument("-nsplits", dest='nsplits', type=int, nargs='?', 
+        help='Usage: -nsplits <K: many splits you want (>1)>', required=True)
+
+    '''
+        todo: make this weight_0 (w0) more general for multiple classes
+    '''
+
+    '''
+        todo: verify if all these parameters are really required
+    '''
+
+    argp.add_argument("-thresh", dest='thresh', type=int, nargs='?',
+            help='Usage: -thresh <x> (0<=x<=1)', required=True)
+    argp.add_argument("-num_feat", dest='num_feat', type=int, nargs='?',
             help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
-            help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs='?',
-            help='Usage: -model_name <path_to_your_stored_model>', 
-            required=True)
+    argp.add_argument("-ep", dest='ep', type=int, nargs='?',
+            help='Usage: -ep <num_of_epochs>', required=True)
+    argp.add_argument("-optim", dest='opt', type=str, nargs='?',
+            help='Usage: -optim <optimizer_used>
+                  Example: -optim adam', required=True)
+    argp.add_argument("-lr", dest='lr', type=float, nargs='?',
+            help='Usage: -lr <learning_rate_value>', required=True)
+    argp.add_argument("-w0", dest='w0', type=float, nargs='?',
+            help='Usage: -w0 <weight_for_fall_class>', required=True)
+    argp.add_argument("-mini_batch", dest='mini_batch', type=float, nargs='?',
+            help='Usage: -mini_batch <mini_batch_size>', required=True)
     argp.add_argument("-id", dest='extract_id', type=str, nargs='?',
         help='Usage: -id <identifier_to_this_features>', required=True)
-args = argp.parse_args()
+    argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs='?',
+        help='Usage: -batch_norm <True/False>', required=True)
+    argp.add_argument("-model", dest='model', type=str, nargs='?',
+            help='Usage: -model <path_to_your_stored_model>', 
+            required=True)
 
-train = Train(args.classes[0], args.classes[1], args.num_features,
-                        args.input_dim[0], args.input_dim[1])
+    args = argp.parse_args()
+
+    train = Train(args.thresh, args.num_feat, args.ep, args.opt, args.lr, 
+            args.w0, args.mini_btch, args.extract_id, args.batch_norm)
+
+    if train.actions = 'train':
+        train.train()
+    elif train.actions = 'cross-train':
+        if args.n_splits > 1:
+            train.cross_train(args.n_splits)
+        else:
+            parser.print_help(sys.stderr)
+            exit(1)
+            '''
+            Invalid value for n_splits
+            '''
+    else:
+        parser.print_help(sys.stderr)
+        exit(1)
+        '''
+        Invalid value for actions
+        '''
+
+'''
+    todo: use model parameter to load model for training
+'''
 
 '''
     todo: reuse Result.evaluate
