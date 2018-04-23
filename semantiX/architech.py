@@ -1,3 +1,4 @@
+import sys
 import argparse
 import h5py
 import numpy as np
@@ -101,6 +102,14 @@ class Architech:
             self.model.add(Flatten())
             self.model.add(Dense(self.num_features, name='fc6', 
                 kernel_initializer='glorot_uniform'))
+        else:
+            print("***********************************************************",
+                    file=sys.stderr)
+            print("You've entered an invalid name for your network. Also, it's",
+                    file=sys.stderr)
+            print("case sensitive. Supported CNN's are: VGG16", file=sys.stderr)
+            print("***********************************************************",
+                    file=sys.stderr)
 
     def weight_init(self, weights_file):
         '''
@@ -136,24 +145,39 @@ class Architech:
 
 if __name__ == '__main__':
     argp = argparse.ArgumentParser(description='Do architecture tasks')
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs='?',
+    argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
             help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
+    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs='?',
+    argp.add_argument("-model", dest='model', type=str, nargs=1,
             help='Usage: -model <path_to_your_stored_model>', 
             required=True)
-    argp.add_argument("-weight", dest='weight', type=str, nargs='?', 
+    argp.add_argument("-weight", dest='weight', type=str, nargs=1, 
             help='Usage: -weight <path_to_your_weight_file>', required=True)
-    args = argp.parse_args()
+
+    try:
+        args = argp.parse_args()
+    except:
+        argp.print_help(sys.stderr)
+        exit(1)
+    finally:
+        print("***********************************************************",
+                file=sys.stderr)
+        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+        print("***********************************************************",
+                file=sys.stderr)
+    
+    arch = Architech(args.model[0], args.num_features[0], args.input_dim[0], 
+                     args.input_dim[1])
+        
+    arch.weight_init(args.weight[0])
+
+    arch.model.save(args.model[0] + '.h5')
 
 '''
     todo: check if user entered a valid network name
 '''
 
-    arch = Architech(args.model, args.num_features, args.input_dim[0], 
-                     args.input_dim[1])
-    arch.weight_init(args.weight)
-
-    arch.save(args.model + '.h5')
-    del arch
+'''
+    todo: criar excecoes para facilitar o uso
+'''
