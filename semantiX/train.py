@@ -11,6 +11,9 @@ from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.models import Model, load_model
 from keras.layers.advanced_activations import ELU
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 
 ''' This code is based on Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, 
     I. (2017). "Vision-Based Fall Detection with Convolutional Neural Networks"
