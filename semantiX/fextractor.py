@@ -55,18 +55,18 @@ class Fextractor:
 
     def extract(self, extract_id, model, data_folder):
 
-        extractor_model = load_model(model + '.h5')
+        extractor_model = load_model(model)
         
-        features_file = "features_" + extract_id
-        labels_file = "labels_" + extract_id
-        samples_file = "samples_" + extract_id
-        num_file = "num_" + extract_id
+        features_file = "features_" + extract_id + ".h5"
+        labels_file = "labels_" + extract_id + ".h5"
+        samples_file = "samples_" + extract_id + ".h5"
+        num_file = "num_" + extract_id + ".h5"
 
         features_key = 'features' 
         labels_key = 'labels'
         samples_key = 'samples'
         num_key = 'num'
-        sliding_heigth = 10
+        sliding_height = 10
 
         '''
         Function to load the optical flow stacks, do a feed-forward through 
@@ -89,10 +89,21 @@ class Fextractor:
         * num_key: name of the key for the hdf5 file to store the num
         * data_folder: folder with class0 and class1 folders
         * sliding_height: height of stack to process
-        * mean_file: mean value for CNN file
         '''
 
-        flow_mean = sio.loadmat(mean_file)['image_mean']
+        try:
+            flow_mean = sio.loadmat('flow_mean.mat')['image_mean']
+        except:
+            print("***********************************************************",
+                file=sys.stderr)
+            print("A flow_mean.mat file with mean values for your trained CNN",
+                    file=sys.stderr)
+            print("should be in the same directory as fextractor.py. This",
+                    file=sys.stderr)
+            print("file also needs a image_mean key", file=sys.stderr)
+            print("***********************************************************",
+                file=sys.stderr)
+            exit(1)
 
         # Fill the folders and classes arrays with all the paths to the data
         fall_videos = [f for f in os.listdir(data_folder + self.class0) 
@@ -206,10 +217,10 @@ if __name__ == '__main__':
             help='Usage: -num_feat <size_of_features_array>', required=True)
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs=1,
-            help='Usage: -model <path_to_your_stored_model>', 
+    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
+            help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
             required=True)
-    argp.add_argument("-id", dest='extract_id', type=str, nargs=1,
+    argp.add_argument("-id", dest='id', type=str, nargs=1,
             help='Usage: -id <identifier_to_this_features>', required=True)
     
     try:
@@ -226,7 +237,7 @@ if __name__ == '__main__':
 
     fextractor = Fextractor(args.classes[0], args.classes[1], 
                 args.num_features[0], args.input_dim[0], args.input_dim[1])
-    fextractor.extract(args.id[0], args.model[0], args.data_folder[0])
+    fextractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
 
 '''
     todo: criar excecoes para facilitar o uso

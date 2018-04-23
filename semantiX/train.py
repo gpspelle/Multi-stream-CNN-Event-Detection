@@ -52,10 +52,10 @@ class Train:
         self.samples_key = 'samples'
         self.num_key = 'num'
 
-        self.features_file = "features_" + extract_id
-        self.labels_file = "labels_" + extract_id
-        self.samples_file = "samples_" + extract_id
-        self.num_file = "num_" + extract_id
+        self.features_file = "features_" + extract_id + ".h5"
+        self.labels_file = "labels_" + extract_id + ".h5"
+        self.samples_file = "samples_" + extract_id + ".h5"
+        self.num_file = "num_" + extract_id + ".h5"
 
         self.threshold = threshold
         self.num_features = num_features
