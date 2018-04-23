@@ -42,7 +42,7 @@ class Architech:
         self.x_size = x_size
         self.y_size = y_size
 
-        if arch_name == 'VGG16':
+        if self.arch_name == 'VGG16':
             self.layers_name = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 
                     'conv3_1', 'conv3_2', 'conv3_3', 'conv4_1', 'conv4_2', 
                     'conv4_3', 'conv5_1', 'conv5_2', 'conv5_3', 'fc6', 'fc7', 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
         
     arch.weight_init(args.weight[0])
 
-    arch.model.save(args.model[0] + '.h5')
+    arch.model.save(args.cnn_arch[0] + '.h5')
 
 '''
     todo: criar excecoes para facilitar o uso
