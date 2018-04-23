@@ -149,6 +149,11 @@ class Architech:
         K.set_value(layer_dict[layer].bias, b2)
 
 if __name__ == '__main__':
+    print("***********************************************************",
+            file=sys.stderr)
+    print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+    print("***********************************************************",
+            file=sys.stderr)
     argp = argparse.ArgumentParser(description='Do architecture tasks')
     argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
             help='Usage: -num_feat <size_of_features_array>', required=True)
@@ -165,12 +170,6 @@ if __name__ == '__main__':
     except:
         argp.print_help(sys.stderr)
         exit(1)
-    finally:
-        print("***********************************************************",
-                file=sys.stderr)
-        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
-        print("***********************************************************",
-                file=sys.stderr)
     
     arch = Architech(args.cnn_arch[0], args.num_features[0], args.input_dim[0], 
                      args.input_dim[1])

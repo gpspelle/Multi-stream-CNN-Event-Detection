@@ -73,12 +73,12 @@ class Train:
         self.no_falls = None
         self.classifier = None
 
-    def pre_cross_train(self, n_splits):
+    def pre_cross_train(self, nsplits):
 
         self.pre_train()
-        # Use a 'n_splits' fold cross-validation
-        self.kf_falls = KFold(n_splits=n_splits)
-        self.kf_nofalls = KFold(n_splits=n_splits)
+        # Use a 'nsplits' fold cross-validation
+        self.kf_falls = KFold(n_splits=nsplits)
+        self.kf_nofalls = KFold(n_splits=nsplits)
         
 
     def pre_train(self):
@@ -96,9 +96,9 @@ class Train:
         self.falls.sort()
         self.no_falls.sort() 
 
-    def cross_train(self, n_splits):
+    def cross_train(self, nsplits):
 
-        self.pre_cross_train(n_splits)
+        self.pre_cross_train(nsplits)
         sensitivities = []
         specificities = []
         fars = []
@@ -131,44 +131,44 @@ class Train:
             # is the same amount of each of them
             all0 = np.asarray(np.where(_y==0)[0])
             all1 = np.asarray(np.where(_y==1)[0])  
-                if len(all0) < len(all1):
-                    all1 = np.random.choice(all1, len(all0), replace=False)
-                else:
-                    all0 = np.random.choice(all0, len(all1), replace=False)
-                allin = np.concatenate((all0.flatten(),all1.flatten()))
-                allin.sort()
-                X_t = X[allin,...]
-                _y_t = _y[allin]
+            if len(all0) < len(all1):
+                all1 = np.random.choice(all1, len(all0), replace=False)
+            else:
+                all0 = np.random.choice(all0, len(all1), replace=False)
+            allin = np.concatenate((all0.flatten(),all1.flatten()))
+            allin.sort()
+            X_t = X[allin,...]
+            _y_t = _y[allin]
 
-                self.set_classifier() 
+            self.set_classifier() 
 
-                # ==================== TRAINING ========================     
-                # weighting of each class: only the fall class gets a different
-                # weight
-                class_weight = {0: self.weight_0, 1: 1}
-                # Batch training
-                if self.mini_batch_size == 0:
-                    history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
-                            batch_size=X.shape[0], epochs=self.epochs, 
-                            shuffle='batch', class_weight=class_weight)
-                else:
-                    history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
-                            batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                            shuffle='batch', class_weight=class_weight)
+            # ==================== TRAINING ========================     
+            # weighting of each class: only the fall class gets a different
+            # weight
+            class_weight = {0: self.weight_0, 1: 1}
+            # Batch training
+            if self.mini_batch_size == 0:
+                history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
+                        batch_size=X.shape[0], epochs=self.epochs, 
+                        shuffle='batch', class_weight=class_weight)
+            else:
+                history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
+                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                        shuffle='batch', class_weight=class_weight)
 
-                exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
-                self.plot_training_info(exp, ['accuracy', 'loss'], True, 
-                                   history.history)
+            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
+                               history.history)
 
-                # Store only the first classifier
-                if first == 0:
-                    self.classifier.save('urfd_classifier.h5')
-                    first = 1
+            # Store only the first classifier
+            if first == 0:
+                self.classifier.save('urfd_classifier.h5')
+                first = 1
 
-                # ==================== EVALUATION ======================== 
-                predicted = self.classifier.predict(np.asarray(X2))
-                self.evaluate(predicted, X2, _y2, sensitivities, 
-                specificities, fars, mdrs, accuracies)
+            # ==================== EVALUATION ======================== 
+            predicted = self.classifier.predict(np.asarray(X2))
+            self.evaluate(predicted, X2, _y2, sensitivities, 
+            specificities, fars, mdrs, accuracies)
             
             print('5-FOLD CROSS-VALIDATION RESULTS ===================')
             print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
@@ -180,187 +180,193 @@ class Train:
             print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
                                                      np.std(accuracies)))
 
-        def train(self):
-            sensitivities = []
-            specificities = []
-            fars = []
-            mdrs = []
-            accuracies = []
+    def train(self):
+        sensitivities = []
+        specificities = []
+        fars = []
+        mdrs = []
+        accuracies = []
 
-            self.pre_train()
+        self.pre_train()
 
-            # todo: change this X, _y
-            X = np.concatenate((self.all_features[self.falls, ...], 
-                self.all_features[self.no_falls, ...]))
-            _y = np.concatenate((self.all_labels[self.falls, ...],
-                self.all_labels[self.no_falls, ...]))
-            
-            # Balance the number of positive and negative samples so that there
-            # is the same amount of each of them
-            # todo: check if it's really necessary
-            all0 = np.asarray(np.where(_y==0)[0])
-            all1 = np.asarray(np.where(_y==1)[0])  
-            if len(all0) < len(all1):
-                all1 = np.random.choice(all1, len(all0), replace=False)
+        # todo: change this X, _y
+        X = np.concatenate((self.all_features[self.falls, ...], 
+            self.all_features[self.no_falls, ...]))
+        _y = np.concatenate((self.all_labels[self.falls, ...],
+            self.all_labels[self.no_falls, ...]))
+        
+        # Balance the number of positive and negative samples so that there
+        # is the same amount of each of them
+        # todo: check if it's really necessary
+        all0 = np.asarray(np.where(_y==0)[0])
+        all1 = np.asarray(np.where(_y==1)[0])  
+        if len(all0) < len(all1):
+            all1 = np.random.choice(all1, len(all0), replace=False)
+        else:
+            all0 = np.random.choice(all0, len(all1), replace=False)
+        allin = np.concatenate((all0.flatten(),all1.flatten()))
+        allin.sort()
+        X_t = X[allin,...]
+        _y_t = _y[allin]
+
+        self.set_classifier()
+
+        # ==================== TRAINING ========================     
+        # weighting of each class: only the fall class gets a different weight
+        class_weight = {0: self.weight_0, 1: 1}
+        # Batch training
+        if self.mini_batch_size == 0:
+            history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
+                    batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
+                    class_weight=class_weight)
+        else:
+            history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
+                    batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                    shuffle='batch', class_weight=class_weight)
+
+        exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+        self.plot_training_info(exp, ['accuracy', 'loss'], True, 
+                           history.history)
+
+        self.classifier.save('urfd_classifier.h5')
+
+        # ==================== EVALUATION ========================        
+        predicted = self.classifier.predict(np.asarray(X))
+        self.evaluate(predicted, X, _y, sensitivities, 
+        specificities, fars, mdrs, accuracies)
+
+    def evaluate(self, predicted, X2, _y2, sensitivities, 
+    specificities, fars, mdrs, accuracies):
+        for i in range(len(predicted)):
+            if predicted[i] < self.threshold:
+                predicted[i] = 0
             else:
-                all0 = np.random.choice(all0, len(all1), replace=False)
-            allin = np.concatenate((all0.flatten(),all1.flatten()))
-            allin.sort()
-            X_t = X[allin,...]
-            _y_t = _y[allin]
+                predicted[i] = 1
+        # Array of predictions 0/1
+        predicted = np.asarray(predicted).astype(int)
+        # Compute metrics and print them
+        cm = confusion_matrix(_y2, predicted,labels=[0,1])
+        tp = cm[0][0]
+        fn = cm[0][1]
+        fp = cm[1][0]
+        tn = cm[1][1]
+        tpr = tp/float(tp+fn)
+        fpr = fp/float(fp+tn)
+        fnr = fn/float(fn+tp)
+        tnr = tn/float(tn+fp)
+        precision = tp/float(tp+fp)
+        recall = tp/float(tp+fn)
+        specificity = tn/float(tn+fp)
+        f1 = 2*float(precision*recall)/float(precision+recall)
+        accuracy = accuracy_score(_y2, predicted)
 
-            self.set_classifier()
+        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+        print('Sensitivity/Recall: {}'.format(recall))
+        print('Specificity: {}'.format(specificity))
+        print('Precision: {}'.format(precision))
+        print('F1-measure: {}'.format(f1))
+        print('Accuracy: {}'.format(accuracy))
 
-            # ==================== TRAINING ========================     
-            # weighting of each class: only the fall class gets a different weight
-            class_weight = {0: self.weight_0, 1: 1}
-            # Batch training
-            if self.mini_batch_size == 0:
-                history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
-                        batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
-                        class_weight=class_weight)
+        # Store the metrics for this epoch
+        sensitivities.append(tp/float(tp+fn))
+        specificities.append(tn/float(tn+fp))
+        fars.append(fpr)
+        mdrs.append(fnr)
+        accuracies.append(accuracy)
+
+    def set_classifier(self):
+        extracted_features = Input(shape=(self.num_features,), dtype='float32',
+                                   name='input')
+        if self.batch_norm:
+            x = BatchNormalization(axis=-1, momentum=0.99, 
+                                   epsilon=0.001)(extracted_features)
+            x = Activation('relu')(x)
+        else:
+            x = ELU(alpha=1.0)(extracted_features)
+       
+        x = Dropout(0.9)(x)
+        x = Dense(self.num_features, name='fc2', 
+                  kernel_initializer='glorot_uniform')(x)
+        if self.batch_norm:
+            x = BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001)(x)
+            x = Activation('relu')(x)
+        else:
+            x = ELU(alpha=1.0)(x)
+        x = Dropout(0.8)(x)
+        x = Dense(1, name='predictions', 
+                  kernel_initializer='glorot_uniform')(x)
+        x = Activation('sigmoid')(x)
+        
+        if self.opt == 'adam':
+            adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
+                        epsilon=1e-08, decay=0.0005)
+
+        self.classifier = Model(input=extracted_features, output=x, 
+                           name='classifier')
+        self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
+                           metrics=['accuracy'])
+
+    def plot_training_info(self, case, metrics, save, history):
+        '''
+        Function to create plots for train and validation loss and accuracy
+        Input:
+        * case: name for the plot, an 'accuracy.png' or 'loss.png' will be concatenated after the name.
+        * metrics: list of metrics to store: 'loss' and/or 'accuracy'
+        * save: boolean to store the plots or only show them.
+        * history: History object returned by the Keras fit function.
+        '''
+        plt.ioff()
+        if 'accuracy' in metrics:     
+            fig = plt.figure()
+            plt.plot(history['acc'])
+            plt.plot(history['val_acc'])
+            plt.title('model accuracy')
+            plt.ylabel('accuracy')
+            plt.xlabel('epoch')
+            plt.legend(['train', 'val'], loc='upper left')
+            if save == True:
+                plt.savefig(case + 'accuracy.png')
+                plt.gcf().clear()
             else:
-                history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
-                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                        shuffle='batch', class_weight=class_weight)
+                plt.show()
+            plt.close(fig)
 
-            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
-            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
-                               history.history)
-
-            self.classifier.save('urfd_classifier.h5')
-
-            # ==================== EVALUATION ========================        
-            predicted = self.classifier.predict(np.asarray(X))
-            self.evaluate(predicted, X, _y, sensitivities, 
-            specificities, fars, mdrs, accuracies)
-
-        def evaluate(self, predicted, X2, _y2, sensitivities, 
-        specificities, fars, mdrs, accuracies):
-            for i in range(len(predicted)):
-                if predicted[i] < self.threshold:
-                    predicted[i] = 0
-                else:
-                    predicted[i] = 1
-            # Array of predictions 0/1
-            predicted = np.asarray(predicted).astype(int)
-            # Compute metrics and print them
-            cm = confusion_matrix(_y2, predicted,labels=[0,1])
-            tp = cm[0][0]
-            fn = cm[0][1]
-            fp = cm[1][0]
-            tn = cm[1][1]
-            tpr = tp/float(tp+fn)
-            fpr = fp/float(fp+tn)
-            fnr = fn/float(fn+tp)
-            tnr = tn/float(tn+fp)
-            precision = tp/float(tp+fp)
-            recall = tp/float(tp+fn)
-            specificity = tn/float(tn+fp)
-            f1 = 2*float(precision*recall)/float(precision+recall)
-            accuracy = accuracy_score(_y2, predicted)
-
-            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-            print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-            print('Sensitivity/Recall: {}'.format(recall))
-            print('Specificity: {}'.format(specificity))
-            print('Precision: {}'.format(precision))
-            print('F1-measure: {}'.format(f1))
-            print('Accuracy: {}'.format(accuracy))
-
-            # Store the metrics for this epoch
-            sensitivities.append(tp/float(tp+fn))
-            specificities.append(tn/float(tn+fp))
-            fars.append(fpr)
-            mdrs.append(fnr)
-            accuracies.append(accuracy)
-
-        def set_classifier(self):
-            extracted_features = Input(shape=(self.num_features,), dtype='float32',
-                                       name='input')
-            if self.batch_norm:
-                x = BatchNormalization(axis=-1, momentum=0.99, 
-                                       epsilon=0.001)(extracted_features)
-                x = Activation('relu')(x)
+        # summarize history for loss
+        if 'loss' in metrics:
+            fig = plt.figure()
+            plt.plot(history['loss'])
+            plt.plot(history['val_loss'])
+            plt.title('model loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            #plt.ylim(1e-3, 1e-2)
+            plt.yscale("log")
+            plt.legend(['train', 'val'], loc='upper left')
+            if save == True:
+                plt.savefig(case + 'loss.png')
+                plt.gcf().clear()
             else:
-                x = ELU(alpha=1.0)(extracted_features)
-           
-            x = Dropout(0.9)(x)
-            x = Dense(self.num_features, name='fc2', 
-                      kernel_initializer='glorot_uniform')(x)
-            if self.batch_norm:
-                x = BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001)(x)
-                x = Activation('relu')(x)
-            else:
-                x = ELU(alpha=1.0)(x)
-            x = Dropout(0.8)(x)
-            x = Dense(1, name='predictions', 
-                      kernel_initializer='glorot_uniform')(x)
-            x = Activation('sigmoid')(x)
-            
-            if self.opt == 'adam':
-                adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
-                            epsilon=1e-08, decay=0.0005)
-
-            self.classifier = Model(input=extracted_features, output=x, 
-                               name='classifier')
-            self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
-                               metrics=['accuracy'])
-
-        def plot_training_info(self, case, metrics, save, history):
-            '''
-            Function to create plots for train and validation loss and accuracy
-            Input:
-            * case: name for the plot, an 'accuracy.png' or 'loss.png' will be concatenated after the name.
-            * metrics: list of metrics to store: 'loss' and/or 'accuracy'
-            * save: boolean to store the plots or only show them.
-            * history: History object returned by the Keras fit function.
-            '''
-            plt.ioff()
-            if 'accuracy' in metrics:     
-                fig = plt.figure()
-                plt.plot(history['acc'])
-                plt.plot(history['val_acc'])
-                plt.title('model accuracy')
-                plt.ylabel('accuracy')
-                plt.xlabel('epoch')
-                plt.legend(['train', 'val'], loc='upper left')
-                if save == True:
-                    plt.savefig(case + 'accuracy.png')
-                    plt.gcf().clear()
-                else:
-                    plt.show()
-                plt.close(fig)
-
-            # summarize history for loss
-            if 'loss' in metrics:
-                fig = plt.figure()
-                plt.plot(history['loss'])
-                plt.plot(history['val_loss'])
-                plt.title('model loss')
-                plt.ylabel('loss')
-                plt.xlabel('epoch')
-                #plt.ylim(1e-3, 1e-2)
-                plt.yscale("log")
-                plt.legend(['train', 'val'], loc='upper left')
-                if save == True:
-                    plt.savefig(case + 'loss.png')
-                    plt.gcf().clear()
-                else:
-                    plt.show()
-                plt.close(fig)
+                plt.show()
+            plt.close(fig)
 
 if __name__ == '__main__':
+    print("***********************************************************",
+            file=sys.stderr)
+    print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+    print("***********************************************************",
+            file=sys.stderr)
+    print("For a simple training -nsplits flag isn't used.", file = sys.stderr)
+    print("For a cross-training set -nsplits <k>, with k beeing the", file=sys.stderr)
+    print("number of folders you want to split up your data.", file=sys.stderr)
+    print("***********************************************************", 
+            file=sys.stderr)
+
     argp = argparse.ArgumentParser(description='Do training tasks')
     argp.add_argument("-actions", dest='actions', type=str, nargs=1,
-            help='Usage: -actions <train/cross_train>
-                  Example: -actions train result
+            help='Usage: -actions <train/cross-train> \
+                  Example: -actions train \
                            -actions cross-train', required=True)
-    args = argp.parse_args()
-
-    if args.actions[0] == 'cross-train':
-        argp.add_argument("-nsplits", dest='nsplits', type=int, nargs=1, 
-        help='Usage: -nsplits <K: many splits you want (>1)>', required=True)
 
     '''
         todo: make this weight_0 (w0) more general for multiple classes
@@ -377,7 +383,7 @@ if __name__ == '__main__':
     argp.add_argument("-ep", dest='ep', type=int, nargs=1,
             help='Usage: -ep <num_of_epochs>', required=True)
     argp.add_argument("-optim", dest='opt', type=str, nargs=1,
-            help='Usage: -optim <optimizer_used>
+            help='Usage: -optim <optimizer_used> \
                   Example: -optim adam', required=True)
     argp.add_argument("-lr", dest='lr', type=float, nargs=1,
             help='Usage: -lr <learning_rate_value>', required=True)
@@ -392,40 +398,37 @@ if __name__ == '__main__':
     argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
             help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
             required=True)
+    argp.add_argument("-nsplits", dest='nsplits', type=int, nargs=1, 
+    help='Usage: -nsplits <K: many splits you want (>1)>', required=False)
 
     try:
         args = argp.parse_args()
     except:
         argp.print_help(sys.stderr)
         exit(1)
-    finally:
-        print("***********************************************************",
-                file=sys.stderr)
-        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
-        print("***********************************************************",
-                file=sys.stderr)
 
     train = Train(args.thresh[0], args.num_feat[0], args.ep[0], args.opt[0], 
             args.lr[0], args.w0[0], args.mini_batch[0], args.extract_id[0], 
             args.batch_norm[0])
 
-    if train.actions[0] = 'train':
+    if args.actions[0] == 'train':
         train.train()
-    elif train.actions[0] = 'cross-train':
-        if args.n_splits > 1:
-            train.cross_train(args.n_splits)
+    elif args.actions[0] == 'cross-train':
+        if args.nsplits == None:
+            print("***********************************************************", 
+                file=sys.stderr)
+            print("You're performing a cross-traing but not giving -nsplits value")
+            print("***********************************************************", 
+                file=sys.stderr)
+            
         else:
-            parser.print_help(sys.stderr)
-            exit(1)
-            '''
-            Invalid value for n_splits
-            '''
+            train.cross_train(args.nsplits[0])
     else:
-        parser.print_help(sys.stderr)
-        exit(1)
         '''
         Invalid value for actions
         '''
+        parser.print_help(sys.stderr)
+        exit(1)
 
 '''
     todo: criar excecoes para facilitar o uso

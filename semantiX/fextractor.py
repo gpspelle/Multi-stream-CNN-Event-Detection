@@ -207,6 +207,11 @@ class Fextractor:
         h5num_classes.close()
 
 if __name__ == '__main__':
+    print("***********************************************************",
+            file=sys.stderr)
+    print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+    print("***********************************************************",
+            file=sys.stderr)
     argp = argparse.ArgumentParser(description='Do feature extraction tasks')
     argp.add_argument("-data", dest='data_folder', type=str, nargs=1, 
             help='Usage: -data <path_to_your_data_folder>', required=True)
@@ -228,12 +233,6 @@ if __name__ == '__main__':
     except:
         argp.print_help(sys.stderr)
         exit(1)
-    finally:
-        print("***********************************************************",
-                file=sys.stderr)
-        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
-        print("***********************************************************",
-                file=sys.stderr)
 
     fextractor = Fextractor(args.classes[0], args.classes[1], 
                 args.num_features[0], args.input_dim[0], args.input_dim[1])
