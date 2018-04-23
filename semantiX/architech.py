@@ -177,7 +177,7 @@ if __name__ == '__main__':
         
     arch.weight_init(args.weight[0])
 
-    arch.model.save(args.cnn_arch[0] + '.h5')
+    arch.model.save(args.cnn_arch[0])
 
 '''
     todo: criar excecoes para facilitar o uso
