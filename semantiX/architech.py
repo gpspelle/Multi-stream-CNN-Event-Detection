@@ -29,20 +29,20 @@ K.set_image_dim_ordering('th')
 
 class Architech: 
 
-    def __init__(self, name, num_features, x_size, y_size):
+    def __init__(self, arch, num_features, x_size, y_size):
         '''
         Input: TODO
         Output: TODO
         '''
 
-        self.name = name
+        self.arch_name = arch 
         self.model = None
         self.layers_name = []
         self.num_features = num_features
         self.x_size = x_size
         self.y_size = y_size
 
-        if name == 'VGG16':
+        if arch_name == 'VGG16':
             self.layers_name = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 
                     'conv3_1', 'conv3_2', 'conv3_3', 'conv4_1', 'conv4_2', 
                     'conv4_3', 'conv5_1', 'conv5_2', 'conv5_3', 'fc6', 'fc7', 
@@ -103,6 +103,11 @@ class Architech:
             self.model.add(Dense(self.num_features, name='fc6', 
                 kernel_initializer='glorot_uniform'))
         else:
+
+            '''
+                execcao de nome invalido
+            '''
+
             print("***********************************************************",
                     file=sys.stderr)
             print("You've entered an invalid name for your network. Also, it's",
@@ -149,8 +154,8 @@ if __name__ == '__main__':
             help='Usage: -num_feat <size_of_features_array>', required=True)
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs=1,
-            help='Usage: -model <path_to_your_stored_model>', 
+    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
+            help='Usage: -cnn_arch <name_of_desired_architecture>', 
             required=True)
     argp.add_argument("-weight", dest='weight', type=str, nargs=1, 
             help='Usage: -weight <path_to_your_weight_file>', required=True)
@@ -167,7 +172,7 @@ if __name__ == '__main__':
         print("***********************************************************",
                 file=sys.stderr)
     
-    arch = Architech(args.model[0], args.num_features[0], args.input_dim[0], 
+    arch = Architech(args.cnn_arch[0], args.num_features[0], args.input_dim[0], 
                      args.input_dim[1])
         
     arch.weight_init(args.weight[0])
@@ -175,9 +180,11 @@ if __name__ == '__main__':
     arch.model.save(args.model[0] + '.h5')
 
 '''
-    todo: check if user entered a valid network name
-'''
-
-'''
     todo: criar excecoes para facilitar o uso
+'''
+'''
+    todo: parametros deveriam ser opcionais e nao obrigatorios.
+    Alternativas: tornar os parametros como opcao se voce quiser alterar o
+    default? Mas ai terei de mudar o tratamento do caso em que nenhum parametro
+    eh passado, pois dai nenhum eh requerido mais. Trade-offs de design
 '''

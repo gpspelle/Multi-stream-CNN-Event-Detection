@@ -23,7 +23,6 @@ from keras.layers.advanced_activations import ELU
     
     This class has a few methods:
 
-    pre_result
     pre_train_cross
     pre_train
     cross_train
@@ -353,14 +352,14 @@ class Train:
 
 if __name__ == '__main__':
     argp = argparse.ArgumentParser(description='Do training tasks')
-    argp.add_argument("-actions", dest='actions', type=str, nargs='+',
+    argp.add_argument("-actions", dest='actions', type=str, nargs=1,
             help='Usage: -actions <train/cross_train>
                   Example: -actions train result
                            -actions cross-train', required=True)
     args = argp.parse_args()
 
-    if args.actions == 'cross-train':
-        argp.add_argument("-nsplits", dest='nsplits', type=int, nargs='?', 
+    if args.actions[0] == 'cross-train':
+        argp.add_argument("-nsplits", dest='nsplits', type=int, nargs=1, 
         help='Usage: -nsplits <K: many splits you want (>1)>', required=True)
 
     '''
@@ -371,37 +370,48 @@ if __name__ == '__main__':
         todo: verify if all these parameters are really required
     '''
 
-    argp.add_argument("-thresh", dest='thresh', type=int, nargs='?',
+    argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
             help='Usage: -thresh <x> (0<=x<=1)', required=True)
-    argp.add_argument("-num_feat", dest='num_feat', type=int, nargs='?',
+    argp.add_argument("-num_feat", dest='num_feat', type=int, nargs=1,
             help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-ep", dest='ep', type=int, nargs='?',
+    argp.add_argument("-ep", dest='ep', type=int, nargs=1,
             help='Usage: -ep <num_of_epochs>', required=True)
-    argp.add_argument("-optim", dest='opt', type=str, nargs='?',
+    argp.add_argument("-optim", dest='opt', type=str, nargs=1,
             help='Usage: -optim <optimizer_used>
                   Example: -optim adam', required=True)
-    argp.add_argument("-lr", dest='lr', type=float, nargs='?',
+    argp.add_argument("-lr", dest='lr', type=float, nargs=1,
             help='Usage: -lr <learning_rate_value>', required=True)
-    argp.add_argument("-w0", dest='w0', type=float, nargs='?',
+    argp.add_argument("-w0", dest='w0', type=float, nargs=1,
             help='Usage: -w0 <weight_for_fall_class>', required=True)
-    argp.add_argument("-mini_batch", dest='mini_batch', type=float, nargs='?',
+    argp.add_argument("-mini_batch", dest='mini_batch', type=int, nargs=1,
             help='Usage: -mini_batch <mini_batch_size>', required=True)
-    argp.add_argument("-id", dest='extract_id', type=str, nargs='?',
+    argp.add_argument("-id", dest='extract_id', type=str, nargs=1,
         help='Usage: -id <identifier_to_this_features>', required=True)
-    argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs='?',
+    argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs=1,
         help='Usage: -batch_norm <True/False>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs='?',
-            help='Usage: -model <path_to_your_stored_model>', 
+    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
+            help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
             required=True)
 
-    args = argp.parse_args()
+    try:
+        args = argp.parse_args()
+    except:
+        argp.print_help(sys.stderr)
+        exit(1)
+    finally:
+        print("***********************************************************",
+                file=sys.stderr)
+        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+        print("***********************************************************",
+                file=sys.stderr)
 
-    train = Train(args.thresh, args.num_feat, args.ep, args.opt, args.lr, 
-            args.w0, args.mini_btch, args.extract_id, args.batch_norm)
+    train = Train(args.thresh[0], args.num_feat[0], args.ep[0], args.opt[0], 
+            args.lr[0], args.w0[0], args.mini_batch[0], args.extract_id[0], 
+            args.batch_norm[0])
 
-    if train.actions = 'train':
+    if train.actions[0] = 'train':
         train.train()
-    elif train.actions = 'cross-train':
+    elif train.actions[0] = 'cross-train':
         if args.n_splits > 1:
             train.cross_train(args.n_splits)
         else:
@@ -418,9 +428,13 @@ if __name__ == '__main__':
         '''
 
 '''
+    todo: criar excecoes para facilitar o uso
+'''
+
+'''
     todo: use model parameter to load model for training
 '''
 
 '''
-    todo: reuse Result.evaluate
+    todo: nomes diferentes para classificadores
 '''

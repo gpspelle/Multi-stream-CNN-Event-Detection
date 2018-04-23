@@ -1,3 +1,4 @@
+import sys
 import argparse
 from sklearn.model_selection import KFold
 import numpy as np
@@ -27,9 +28,7 @@ from matplotlib import pyplot as plt
 
     pre_result
     result
-    evaluate
     check_videos
-    plot_training_info
 
     The methods that should be called outside of this class are:
 
@@ -42,6 +41,16 @@ class Result:
 
     def __init__(self, threshold, num_features, epochs, opt, learning_rate, 
     weight_0, mini_batch_size):
+
+        self.features_key = 'features' 
+        self.labels_key = 'labels'
+        self.samples_key = 'samples'
+        self.num_key = 'num'
+
+        self.features_file = "features_" + extract_id
+        self.labels_file = "labels_" + extract_id
+        self.samples_file = "samples_" + extract_id
+        self.num_file = "num_" + extract_id
 
         self.threshold = threshold
         self.num_features = num_features
@@ -56,17 +65,17 @@ class Result:
         self.no_falls = None
         self.classifier = None
 
-    def pre_result(self, features_file, labels_file, features_key, labels_key):
+    def pre_result(self):
         self.classifier = load_model('urfd_classifier.h5')
 
         # Reading information extracted
-        h5features = h5py.File(features_file, 'r')
-        h5labels = h5py.File(labels_file, 'r')
+        h5features = h5py.File(self.features_file, 'r')
+        h5labels = h5py.File(self.labels_file, 'r')
 
         # all_features will contain all the feature vectors extracted from
         # optical flow images
-        self.all_features = h5features[features_key]
-        self.all_labels = np.asarray(h5labels[labels_key])
+        self.all_features = h5features[self.features_key]
+        self.all_labels = np.asarray(h5labels[self.labels_key])
 
         self.falls = np.asarray(np.where(self.all_labels==0)[0])
         self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
@@ -84,12 +93,10 @@ class Result:
 
         return X, Y, predicted
 
-    def result(self, features_file, labels_file, samples_file, num_file, 
-            features_key, labels_key, samples_key, num_key):
+    def result(self):
 
         # todo: change X and Y variable names
-        X, Y, predicted = self.pre_result(features_file, labels_file, 
-                features_key, labels_key) 
+        X, Y, predicted = self.pre_result()
 
         for i in range(len(predicted)):
             if predicted[i] < self.threshold:
@@ -122,57 +129,14 @@ class Result:
         print('F1-measure: {}'.format(f1))
         print('Accuracy: {}'.format(accuracy))
 
-        self.check_videos(Y, predicted, samples_file, num_file, samples_key, 
-                            num_key) 
+        self.check_videos(Y, predicted)
 
-        def evaluate(self, predicted, X2, _y2, sensitivities, 
-        specificities, fars, mdrs, accuracies):
-            for i in range(len(predicted)):
-                if predicted[i] < self.threshold:
-                    predicted[i] = 0
-                else:
-                    predicted[i] = 1
-            # Array of predictions 0/1
-            predicted = np.asarray(predicted).astype(int)
-            # Compute metrics and print them
-            cm = confusion_matrix(_y2, predicted,labels=[0,1])
-            tp = cm[0][0]
-            fn = cm[0][1]
-            fp = cm[1][0]
-            tn = cm[1][1]
-            tpr = tp/float(tp+fn)
-            fpr = fp/float(fp+tn)
-            fnr = fn/float(fn+tp)
-            tnr = tn/float(tn+fp)
-            precision = tp/float(tp+fp)
-            recall = tp/float(tp+fn)
-            specificity = tn/float(tn+fp)
-            f1 = 2*float(precision*recall)/float(precision+recall)
-            accuracy = accuracy_score(_y2, predicted)
+        def check_videos(self, _y2, predicted):
+            h5samples = h5py.File(self.samples_file, 'r')
+            h5num = h5py.File(self.num_file, 'r')
 
-            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-            print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-            print('Sensitivity/Recall: {}'.format(recall))
-            print('Specificity: {}'.format(specificity))
-            print('Precision: {}'.format(precision))
-            print('F1-measure: {}'.format(f1))
-            print('Accuracy: {}'.format(accuracy))
-
-            # Store the metrics for this epoch
-            sensitivities.append(tp/float(tp+fn))
-            specificities.append(tn/float(tn+fp))
-            fars.append(fpr)
-            mdrs.append(fnr)
-            accuracies.append(accuracy)
-
-        def check_videos(self, _y2, predicted, samples_file, num_file, samples_key, 
-        num_key):
-
-            h5samples = h5py.File(samples_file, 'r')
-            h5num = h5py.File(num_file, 'r')
-
-            all_samples = np.asarray(h5samples[samples_key])
-            all_num = np.asarray(h5num[num_key])
+            all_samples = np.asarray(h5samples[self.samples_key])
+            all_num = np.asarray(h5num[self.num_key])
 
             video = 1
             inic = 0
@@ -245,71 +209,53 @@ class Result:
             self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
                                metrics=['accuracy'])
 
-        def plot_training_info(self, case, metrics, save, history):
-            '''
-            Function to create plots for train and validation loss and accuracy
-            Input:
-            * case: name for the plot, an 'accuracy.png' or 'loss.png' will be concatenated after the name.
-            * metrics: list of metrics to store: 'loss' and/or 'accuracy'
-            * save: boolean to store the plots or only show them.
-            * history: History object returned by the Keras fit function.
-            '''
-            plt.ioff()
-            if 'accuracy' in metrics:     
-                fig = plt.figure()
-                plt.plot(history['acc'])
-                plt.plot(history['val_acc'])
-                plt.title('model accuracy')
-                plt.ylabel('accuracy')
-                plt.xlabel('epoch')
-                plt.legend(['train', 'val'], loc='upper left')
-                if save == True:
-                    plt.savefig(case + 'accuracy.png')
-                    plt.gcf().clear()
-                else:
-                    plt.show()
-                plt.close(fig)
-
-            # summarize history for loss
-            if 'loss' in metrics:
-                fig = plt.figure()
-                plt.plot(history['loss'])
-                plt.plot(history['val_loss'])
-                plt.title('model loss')
-                plt.ylabel('loss')
-                plt.xlabel('epoch')
-                #plt.ylim(1e-3, 1e-2)
-                plt.yscale("log")
-                plt.legend(['train', 'val'], loc='upper left')
-                if save == True:
-                    plt.savefig(case + 'loss.png')
-                    plt.gcf().clear()
-                else:
-                    plt.show()
-                plt.close(fig)
-         
 if __name__ == '__main__':
+
+    '''
+        todo: make this weight_0 (w0) more general for multiple classes
+    '''
+
+    '''
+        todo: verify if all these parameters are really required
+    '''
+
     argp = argparse.ArgumentParser(description='Do result  tasks')
-    argp.add_argument("-data", dest='data_folder', type=str, nargs='?', 
+    argp.add_argument("-data", dest='data_folder', type=str, nargs=1, 
             help='Usage: -data <path_to_your_data_folder>', required=True)
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs='?',
+    argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
             help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
+    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs='?',
-            help='Usage: -model <path_to_your_stored_model>', 
+    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
+            help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
             required=True)
-    argp.add_argument("-id", dest='extract_id', type=str, nargs='?',
+    argp.add_argument("-id", dest='extract_id', type=str, nargs=1,
         help='Usage: -id <identifier_to_this_features>', required=True)
 
-    args = argp.parse_args()
+    try:
+        args = argp.parse_args()
+    except:
+        argp.print_help(sys.stderr)
+        exit(1)
+    finally:
+        print("***********************************************************",
+                file=sys.stderr)
+        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+        print("***********************************************************",
+                file=sys.stderr)
 
-    result = Result(args.classes[0], args.classes[1], args.num_features,
+    result = Result(args.classes[0], args.classes[1], args.num_features[0],
                         args.input_dim[0], args.input_dim[1])
 
+    result.result()
+
 '''
-    todo: split worker in train and result
+    todo: criar excecoes para facilitar o uso
+'''
+
+'''
+    todo: nomes diferentes para classificadores
 '''

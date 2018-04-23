@@ -1,4 +1,5 @@
 from keras.models import load_model
+import sys
 import argparse
 import numpy as np
 import scipy.io as sio
@@ -196,22 +197,41 @@ class Fextractor:
 
 if __name__ == '__main__':
     argp = argparse.ArgumentParser(description='Do feature extraction tasks')
-    argp.add_argument("-data", dest='data_folder', type=str, nargs='?', 
+    argp.add_argument("-data", dest='data_folder', type=str, nargs=1, 
             help='Usage: -data <path_to_your_data_folder>', required=True)
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs='?',
+    argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
             help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs='+', 
+    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-model", dest='model', type=str, nargs='?',
+    argp.add_argument("-model", dest='model', type=str, nargs=1,
             help='Usage: -model <path_to_your_stored_model>', 
             required=True)
-    argp.add_argument("-id", dest='extract_id', type=str, nargs='?',
+    argp.add_argument("-id", dest='extract_id', type=str, nargs=1,
             help='Usage: -id <identifier_to_this_features>', required=True)
-    args = argp.parse_args()
+    
+    try:
+        args = argp.parse_args()
+    except:
+        argp.print_help(sys.stderr)
+        exit(1)
+    finally:
+        print("***********************************************************",
+                file=sys.stderr)
+        print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
+        print("***********************************************************",
+                file=sys.stderr)
 
-    fextractor = Fextractor(args.classes[0], args.classes[1], args.num_features,
-                            args.input_dim[0], args.input_dim[1])
-    fextractor.extract(args.id, args.model, args.data_folder)
+    fextractor = Fextractor(args.classes[0], args.classes[1], 
+                args.num_features[0], args.input_dim[0], args.input_dim[1])
+    fextractor.extract(args.id[0], args.model[0], args.data_folder[0])
+
+'''
+    todo: criar excecoes para facilitar o uso
+'''
+
+'''
+    todo: impressao dupla de help se -h ou --help eh passado
+'''
