@@ -116,7 +116,7 @@ class Fextractor:
                 self.folders.append(data_folder + self.class0 + '/' + fall_video)
                 self.classes.append(0)
 
-         for not_fall_video in self.not_fall_videos:
+        for not_fall_video in self.not_fall_videos:
             self.x_images = glob.glob(data_folder + self.class1 + '/' +
                                  not_fall_video + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
@@ -202,7 +202,7 @@ class Fextractor:
         h5samples.close()
         h5num_classes.close()
 
-    def extract_optflow(self):
+    def extract_optflow(self, data_folder):
 
         # Fill the folders and classes arrays with all the paths to the data
         self.fall_videos = [f for f in os.listdir(data_folder + self.class0) 
@@ -218,11 +218,6 @@ class Fextractor:
 
         self.not_fall_videos.sort()
 
-       
-        print(fall_videos)
-        print(not_fall_videos)
-
-        exit(1)
         cap = cv2.VideoCapture("fall-01-cam0.mp4")
         ret, frame1 = cap.read()
         prvs = cv2.cvtColor(frame1,cv2.COLOR_BGR2GRAY)
