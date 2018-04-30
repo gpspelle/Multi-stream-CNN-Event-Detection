@@ -139,7 +139,6 @@ class Result:
         msage_not_fall = list("###### Not fall videos ")
         msage_not_fall.append(str(all_num[1][0]))
         msage_not_fall.append(" ######")
-        print(all_num)
 
         for x in range(len(all_samples)):
             correct = 1

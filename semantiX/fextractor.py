@@ -39,7 +39,11 @@ class Fextractor:
         self.class1 = class1
         self.num_features = num_features
         self.folders = []
+        self.fall_videos = []
+        self.not_fall_videos = []
         self.classes = []
+        self.x_images = []
+        self.y_images = []
         self.x_size = x_size
         self.y_size = y_size
         # Total amount of stacks with sliding window=num_images-sliding_height+1
@@ -105,24 +109,15 @@ class Fextractor:
                 file=sys.stderr)
             exit(1)
 
-        # Fill the folders and classes arrays with all the paths to the data
-        fall_videos = [f for f in os.listdir(data_folder + self.class0) 
-                       if os.path.isdir(os.path.join(data_folder + 
-                           self.class0, f))]
-        fall_videos.sort()
-        for fall_video in fall_videos:
-            x_images = glob.glob(data_folder + self.class0 + '/' + 
+        for fall_video in self.fall_videos:
+            self.x_images = glob.glob(data_folder + self.class0 + '/' + 
                                  fall_video + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
                 self.folders.append(data_folder + self.class0 + '/' + fall_video)
                 self.classes.append(0)
 
-        not_fall_videos = [f for f in os.listdir(data_folder + self.class1) 
-                    if os.path.isdir(os.path.join(data_folder + 
-                        self.class1, f))]
-        not_fall_videos.sort()
-        for not_fall_video in not_fall_videos:
-            x_images = glob.glob(data_folder + self.class1 + '/' +
+         for not_fall_video in self.not_fall_videos:
+            self.x_images = glob.glob(data_folder + self.class1 + '/' +
                                  not_fall_video + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
                 self.folders.append(data_folder + self.class1 + '/' + 
@@ -130,8 +125,9 @@ class Fextractor:
                 self.classes.append(1)
 
         for folder in self.folders:
-            x_images = glob.glob(folder + '/flow_x*.jpg')
+            self.x_images = glob.glob(folder + '/flow_x*.jpg')
             self.nb_total_stacks += len(x_images)-sliding_height+1
+
         
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
@@ -145,13 +141,13 @@ class Fextractor:
         dataset_labels = h5labels.create_dataset(labels_key, 
                 shape=(self.nb_total_stacks, 1), dtype='float64')  
         dataset_samples = h5samples.create_dataset(samples_key, 
-                shape=(len(fall_videos) + len(not_fall_videos), 1), 
+                shape=(len(self.classes), 1), 
                 dtype='int32')  
         dataset_num = h5num_classes.create_dataset(num_key, shape=(2, 1), 
                 dtype='int32')  
         
-        dataset_num[0] = len(fall_videos)
-        dataset_num[1] = len(not_fall_videos)
+        dataset_num[0] = len(self.fall_videos)
+        dataset_num[1] = len(self.not_fall_videos)
 
         cont = 0
         number = 0
@@ -206,6 +202,54 @@ class Fextractor:
         h5samples.close()
         h5num_classes.close()
 
+    def extract_optflow(self):
+
+        # Fill the folders and classes arrays with all the paths to the data
+        self.fall_videos = [f for f in os.listdir(data_folder + self.class0) 
+                       if os.path.isdir(os.path.join(data_folder + 
+                           self.class0, f))]
+
+        self.fall_videos.sort()
+
+        
+        self.not_fall_videos = [f for f in os.listdir(data_folder + self.class1) 
+                    if os.path.isdir(os.path.join(data_folder + 
+                        self.class1, f))]
+
+        self.not_fall_videos.sort()
+
+       
+        print(fall_videos)
+        print(not_fall_videos)
+
+        exit(1)
+        cap = cv2.VideoCapture("fall-01-cam0.mp4")
+        ret, frame1 = cap.read()
+        prvs = cv2.cvtColor(frame1,cv2.COLOR_BGR2GRAY)
+        hsv = np.zeros_like(frame1)
+        hsv[...,1] = 255
+        while(1):
+            ret, frame2 = cap.read()
+            next = cv2.cvtColor(frame2,cv2.COLOR_BGR2GRAY)
+            flow = cv2.calcOpticalFlowFarneback(prvs,next, None, 
+                                                0.5, 3, 15, 3, 5, 1.2, 0)
+            mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+            hsv[...,0] = ang*180/np.pi/2
+            hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
+            bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
+            cv2.imshow('frame2',bgr)
+            k = cv2.waitKey(30) & 0xff
+            if k == 27:
+                break
+            elif k == ord('s'):
+                cv2.imwrite('opticalfb.png',frame2)
+                cv2.imwrite('opticalhsv.png',bgr)
+            prvs = next
+        cap.release()
+        cv2.destroyAllWindows()
+        
+
+
 if __name__ == '__main__':
     print("***********************************************************",
             file=sys.stderr)
@@ -236,7 +280,8 @@ if __name__ == '__main__':
 
     fextractor = Fextractor(args.classes[0], args.classes[1], 
                 args.num_features[0], args.input_dim[0], args.input_dim[1])
-    fextractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
+    #fextractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
+    fextractor.extract_optflow(args.data_folder[0])
 
 '''
     todo: criar excecoes para facilitar o uso
