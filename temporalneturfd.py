@@ -528,9 +528,7 @@ def main():
             if compute_metrics:
                predicted = classifier.predict(np.asarray(X2))
                evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
-               check_videos(_y2, predicted, samples_key, training_samples_file, num_key, training_num_file) 
-            
-            
+
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')
         print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
         print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities), np.std(specificities)))
@@ -538,7 +536,17 @@ def main():
         print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
         print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), np.std(accuracies)))
 
-    # =============================================================================================================
+        # todo: change X and Y variable names
+        X = np.concatenate((X_full[zeroes, ...], 
+            _y_full[zeroes, ...]))
+        Y = np.concatenate((_y_full[ones, ...], 
+            _y_full[ones, ...]))
+       
+        classifier = load_model('urfd_classifier.h5')
+        predicted = self.classifier.predict(np.asarray(X))
+        evaluate(predicted, X, Y, sensitivities, specificities, fars, mdrs, accuracies)
+        check_videos(Y, predicted, samples_key, training_samples_file, num_key, training_num_file) 
+            # =============================================================================================================
     # TESTING CLASSIFIER 
     # =============================================================================================================
     if do_evaluation:

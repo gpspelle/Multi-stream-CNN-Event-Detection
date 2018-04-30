@@ -172,15 +172,15 @@ class Train:
             self.evaluate(predicted, X2, _y2, sensitivities, 
             specificities, fars, mdrs, accuracies)
             
-            print('5-FOLD CROSS-VALIDATION RESULTS ===================')
-            print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
-                                                        np.std(sensitivities)))
-            print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities),
-                                                        np.std(specificities)))
-            print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
-            print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
-            print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
-                                                     np.std(accuracies)))
+        print('5-FOLD CROSS-VALIDATION RESULTS ===================')
+        print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
+                                                    np.std(sensitivities)))
+        print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities),
+                                                    np.std(specificities)))
+        print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
+        print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
+        print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
+                                                 np.std(accuracies)))
 
     def train(self):
         sensitivities = []
