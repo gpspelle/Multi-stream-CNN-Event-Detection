@@ -20,7 +20,7 @@ from matplotlib import pyplot as plt
     Semantix. 
 '''
 
-''' Documentation: class Worker
+''' Documentation: class Result
     
     This class has a few methods:
 
