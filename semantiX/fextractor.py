@@ -39,6 +39,8 @@ class Fextractor:
         self.class1 = class1
         self.num_features = num_features
         self.folders = []
+        self.fall_disr = []
+        self.not_fall_dirs = []
         self.fall_videos = []
         self.not_fall_videos = []
         self.classes = []
@@ -109,26 +111,25 @@ class Fextractor:
                 file=sys.stderr)
             exit(1)
 
-        for fall_video in self.fall_videos:
+        for fall_dir in self.fall_dirs:
             self.x_images = glob.glob(data_folder + self.class0 + '/' + 
-                                 fall_video + '/flow_x*.jpg')
+                                 fall_dir + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
-                self.folders.append(data_folder + self.class0 + '/' + fall_video)
+                self.folders.append(data_folder + self.class0 + '/' + fall_dir)
                 self.classes.append(0)
 
-        for not_fall_video in self.not_fall_videos:
+        for not_fall_dir in self.not_fall_dirs:
             self.x_images = glob.glob(data_folder + self.class1 + '/' +
-                                 not_fall_video + '/flow_x*.jpg')
+                                 not_fall_dir + '/flow_x*.jpg')
             if int(len(x_images)) >= 10:
                 self.folders.append(data_folder + self.class1 + '/' + 
-                        not_fall_video)
+                        not_fall_dir)
                 self.classes.append(1)
 
         for folder in self.folders:
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
             self.nb_total_stacks += len(x_images)-sliding_height+1
 
-        
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
         h5features = h5py.File(features_file,'w')
@@ -146,8 +147,8 @@ class Fextractor:
         dataset_num = h5num_classes.create_dataset(num_key, shape=(2, 1), 
                 dtype='int32')  
         
-        dataset_num[0] = len(self.fall_videos)
-        dataset_num[1] = len(self.not_fall_videos)
+        dataset_num[0] = len(self.fall_dirs)
+        dataset_num[1] = len(self.not_fall_dirs)
 
         cont = 0
         number = 0
@@ -205,46 +206,89 @@ class Fextractor:
     def extract_optflow(self, data_folder):
 
         # Fill the folders and classes arrays with all the paths to the data
-        self.fall_videos = [f for f in os.listdir(data_folder + self.class0) 
-                       if os.path.isdir(os.path.join(data_folder + 
-                           self.class0, f))]
+        for f in os.listdir(data_folder + self.class0):
+            if os.path.isdir(os.path.join(data_folder + self.class0, f)):
+                self.fall_dirs.append(data_folder + self.class0 + '/' + f)
 
-        self.fall_videos.sort()
-
+        self.fall_dirs.sort()
         
-        self.not_fall_videos = [f for f in os.listdir(data_folder + self.class1) 
-                    if os.path.isdir(os.path.join(data_folder + 
-                        self.class1, f))]
+        for f in os.listdir(data_folder + self.class0):
+            if os.path.isdir(os.path.join(data_folder + self.class1, f)):
+                self.not_fall_dirs.append(data_folder + self.class1 + '/' + f)
 
-        self.not_fall_videos.sort()
+        self.not_fall_dirs.sort()
 
-        cap = cv2.VideoCapture("fall-01-cam0.mp4")
-        ret, frame1 = cap.read()
-        prvs = cv2.cvtColor(frame1,cv2.COLOR_BGR2GRAY)
-        hsv = np.zeros_like(frame1)
-        hsv[...,1] = 255
-        while(1):
-            ret, frame2 = cap.read()
-            next = cv2.cvtColor(frame2,cv2.COLOR_BGR2GRAY)
-            flow = cv2.calcOpticalFlowFarneback(prvs,next, None, 
-                                                0.5, 3, 15, 3, 5, 1.2, 0)
-            mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-            hsv[...,0] = ang*180/np.pi/2
-            hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
-            bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
-            cv2.imshow('frame2',bgr)
-            k = cv2.waitKey(30) & 0xff
-            if k == 27:
-                break
-            elif k == ord('s'):
-                cv2.imwrite('opticalfb.png',frame2)
-                cv2.imwrite('opticalhsv.png',bgr)
-            prvs = next
-        cap.release()
-        cv2.destroyAllWindows()
+
+        '''
+            todo: fall_dirs e fall_videos.append esta inconsistente
+        '''
+
+        for fall_dir in self.fall_dirs:
+            self.fall_videos.append(data_folder + self.class0 + '/' + fall_dir +
+                                '/' + fall_dir + '.mp4')
+
+        for not_fall_dir in self.not_fall_dirs:
+            self.not_fall_videos.append(data_folder + self.class1 + '/' +
+                                not_fall_dir + '/' + not_fall_dir + '.mp4')
+
+        for fall_video, fall_dir in (self.fall_videos, self.fall_dirs): 
+            counter = 1
+            cap = cv2.VideoCapture(fall_video)
+            ret, frame1 = cap.read()
+            prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            hsv = np.zeros_like(frame1)
+            hsv[...,1] = 255
+            while(1):
+                ret, frame2 = cap.read()
+                next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+                flow = cv2.calcOpticalFlowFarneback(prvs,next, None, 
+                                                    0.5, 3, 15, 3, 5, 1.2, 0)
+                mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+                hsv[...,0] = ang * 180 / np.pi / 2
+                hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+                bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+                '''
+                    todo: fall_dir esta inconsistente
+                '''
+
+                cv2.imwrite(fall_dir + str(counter).zfill(5), hsv[..., 0])
+                cv2.imwrite(fall_dir + str(counter).zfill(5), hsv[..., 2])
+                cv2.imwrite(fall_dir + str(counter).zfill(5), bgr)
+                counter += 1
+                prvs = next
+            cap.release()
+            cv2.destroyAllWindows()
+
+        for not_fall_video, not_fall_dir in (self.not_fall_videos, self.not_fall_dirs):
+            counter = 1
+            cap = cv2.VideoCapture(not_fall_video)
+            ret, frame1 = cap.read()
+            prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            hsv = np.zeros_like(frame1)
+            hsv[...,1] = 255
+            while(1):
+                ret, frame2 = cap.read()
+                next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+                flow = cv2.calcOpticalFlowFarneback(prvs,next, None, 
+                                                    0.5, 3, 15, 3, 5, 1.2, 0)
+                mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+                hsv[...,0] = ang * 180 / np.pi / 2
+                hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+                bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+                '''
+                    todo: fall_dir esta inconsistente
+                '''
+
+                cv2.imwrite(not_fall_dir + str(counter).zfill(5), hsv[..., 0])
+                cv2.imwrite(not_fall_dir + str(counter).zfill(5), hsv[..., 2])
+                cv2.imwrite(not_fall_dir + str(counter).zfill(5), bgr)
+                counter += 1
+                prvs = next
+            cap.release()
+            cv2.destroyAllWindows()
         
-
-
 if __name__ == '__main__':
     print("***********************************************************",
             file=sys.stderr)
