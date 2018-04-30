@@ -33,30 +33,25 @@ vgg_16_weights = 'weights.h5'
 model_file = 'models/exp_'
 weights_file = 'weights/exp_'
 
-#training_features_file = 'features_urfd.h5'
-#training_labels_file = 'labels_urfd.h5'
-#training_samples_file = 'samples_urfd.h5'
-#training_num_file = 'num_urfd.h5'
+training_features_file = 'features_urfd.h5'
+training_labels_file = 'labels_urfd.h5'
+training_samples_file = 'samples_urfd.h5'
+training_num_file = 'num_urfd.h5'
 
-training_features_file = 'features_val.h5'
-training_labels_file = 'labels_val.h5'
-training_samples_file = 'samples_val.h5'
-training_num_file = 'num_val.h5'
+#training_features_file = 'features_val.h5'
+#training_labels_file = 'labels_val.h5'
+#training_samples_file = 'samples_val.h5'
+#training_num_file = 'num_val.h5'
 
-#evaluation_features_file = 'features_urfd.h5'
-#evaluation_labels_file = 'labels_urfd.h5'
-#evaluation_samples_file = 'samples_urfd.h5'
-#evaluation_num_file = 'num_urfd.h5'
+evaluation_features_file = 'features_urfd.h5'
+evaluation_labels_file = 'labels_urfd.h5'
+evaluation_samples_file = 'samples_urfd.h5'
+evaluation_num_file = 'num_urfd.h5'
 
 #evaluation_features_file = 'features_val.h5'
 #evaluation_labels_file = 'labels_val.h5'
 #evaluation_samples_file = 'samples_val.h5'
 #evaluation_num_file = 'num_val.h5'
-
-evaluation_features_file = 'fake_val.h5'
-evaluation_labels_file = 'fakee_val.h5'
-evaluation_samples_file = 'fakeee_val.h5'
-evaluation_num_file = 'fakeeee_val.h5'
 
 features_key = 'features'
 labels_key = 'labels'
@@ -69,13 +64,13 @@ batch_norm = True
 learning_rate = 0.0001
 mini_batch_size = 0
 weight_0 = 1
-epochs = 200
+epochs = 50
 
 save_plots = True
-extract_features_training = False
-extract_features_evaluation = True
+extract_features_training = False 
+extract_features_evaluation = False
 
-do_training = False 
+do_training = True 
 do_evaluation = True 
 compute_metrics = True
 threshold = 0.5
@@ -150,7 +145,7 @@ def check_videos(_y2, predicted, samples_key, samples_file, num_key, num_file):
 
         if x == 0:
             print(''.join(msage_fall))
-        elif x == all_num[1][0]:
+        elif x == all_num[0][0]:
             print(''.join(msage_not_fall))
             video = 1 
 
@@ -533,7 +528,7 @@ def main():
             if compute_metrics:
                predicted = classifier.predict(np.asarray(X2))
                evaluate(predicted, X2, _y2, sensitivities, specificities, fars, mdrs, accuracies)
-               check_videos(_y2, predicted, samples_key, training_samples_file, num_key, training_samples_file) 
+               check_videos(_y2, predicted, samples_key, training_samples_file, num_key, training_num_file) 
             
             
         print('5-FOLD CROSS-VALIDATION RESULTS ===================')

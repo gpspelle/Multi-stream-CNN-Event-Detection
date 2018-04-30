@@ -2,8 +2,6 @@ import sys
 import argparse
 from sklearn.model_selection import KFold
 import numpy as np
-from numpy.random import seed
-seed(1)
 import h5py
 from sklearn.metrics import confusion_matrix, accuracy_score
 from keras.layers import Input, Activation, Dense, Dropout

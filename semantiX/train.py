@@ -69,7 +69,6 @@ class Train:
         self.mini_batch_size = mini_batch_size
         self.batch_norm = batch_norm 
 
-
         self.kf_falls = None
         self.kf_nofalls = None
         self.falls = None
