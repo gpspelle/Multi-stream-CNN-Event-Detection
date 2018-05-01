@@ -206,30 +206,30 @@ class Fextractor:
     def extract_optflow(self, data_folder):
 
         # Fill the folders and classes arrays with all the paths to the data
-        for f in os.listdir(data_folder + self.class0):
-            if os.path.isdir(os.path.join(data_folder + self.class0, f)):
-                self.fall_dirs.append(data_folder + self.class0 + '/' + f)
+        self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
+                        if os.path.isdir(os.path.join(data_folder, 
+                        self.class0, f))]
 
         self.fall_dirs.sort()
         
-        for f in os.listdir(data_folder + self.class0):
-            if os.path.isdir(os.path.join(data_folder + self.class1, f)):
-                self.not_fall_dirs.append(data_folder + self.class1 + '/' + f)
+
+        self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
+                         if os.path.isdir(os.path.join(data_folder, 
+                         self.class1, f))]
 
         self.not_fall_dirs.sort()
 
 
-        '''
-            todo: fall_dirs e fall_videos.append esta inconsistente
-        '''
+        for f in self.fall_dirs:
+            self.fall_videos.append(data_folder + self.class0 + '/' + f +
+                                '/' + f + '.mp4')
 
-        for fall_dir in self.fall_dirs:
-            self.fall_videos.append(data_folder + self.class0 + '/' + fall_dir +
-                                '/' + fall_dir + '.mp4')
-
-        for not_fall_dir in self.not_fall_dirs:
+        for f in self.not_fall_dirs:
             self.not_fall_videos.append(data_folder + self.class1 + '/' +
-                                not_fall_dir + '/' + not_fall_dir + '.mp4')
+                                f + '/' + f + '.mp4')
+
+        self.fall_videos.sort()
+        self.not_fall_videos.sort()
 
         for fall_video, fall_dir in (self.fall_videos, self.fall_dirs): 
             counter = 1
@@ -238,6 +238,7 @@ class Fextractor:
             prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
             hsv = np.zeros_like(frame1)
             hsv[...,1] = 255
+            path = data_folder + self.class0 +  '/' + fall_dir
             while(1):
                 ret, frame2 = cap.read()
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
@@ -247,14 +248,12 @@ class Fextractor:
                 hsv[...,0] = ang * 180 / np.pi / 2
                 hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-                '''
-                    todo: fall_dir esta inconsistente
-                '''
-
-                cv2.imwrite(fall_dir + str(counter).zfill(5), hsv[..., 0])
-                cv2.imwrite(fall_dir + str(counter).zfill(5), hsv[..., 2])
-                cv2.imwrite(fall_dir + str(counter).zfill(5), bgr)
+                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5), 
+                        hsv[..., 0])
+                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5), 
+                        hsv[..., 2])
+                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5), 
+                        bgr)
                 counter += 1
                 prvs = next
             cap.release()
@@ -267,6 +266,7 @@ class Fextractor:
             prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
             hsv = np.zeros_like(frame1)
             hsv[...,1] = 255
+            path = data_folder + self.class1 + '/' + not_fall_dir
             while(1):
                 ret, frame2 = cap.read()
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
@@ -276,14 +276,12 @@ class Fextractor:
                 hsv[...,0] = ang * 180 / np.pi / 2
                 hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-                '''
-                    todo: fall_dir esta inconsistente
-                '''
-
-                cv2.imwrite(not_fall_dir + str(counter).zfill(5), hsv[..., 0])
-                cv2.imwrite(not_fall_dir + str(counter).zfill(5), hsv[..., 2])
-                cv2.imwrite(not_fall_dir + str(counter).zfill(5), bgr)
+                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5), 
+                        hsv[..., 0])
+                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5), 
+                        hsv[..., 2])
+                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5), 
+                        bgr)
                 counter += 1
                 prvs = next
             cap.release()
