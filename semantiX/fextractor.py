@@ -1,4 +1,6 @@
 from keras.models import load_model
+# todo: temporary para isnan and isinf
+import math
 import sys
 import argparse
 import numpy as np
@@ -60,6 +62,8 @@ class Fextractor:
             yield x, y
 
     def extract(self, extract_id, model, data_folder):
+
+        self.extract_optflow(data_folder)
 
         extractor_model = load_model(model)
         
@@ -210,15 +214,14 @@ class Fextractor:
                         if os.path.isdir(os.path.join(data_folder, 
                         self.class0, f))]
 
-        self.fall_dirs.sort()
         
 
         self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
                          if os.path.isdir(os.path.join(data_folder, 
                          self.class1, f))]
 
+        self.fall_dirs.sort()
         self.not_fall_dirs.sort()
-
 
         for f in self.fall_dirs:
             self.fall_videos.append(data_folder + self.class0 + '/' + f +
@@ -231,57 +234,95 @@ class Fextractor:
         self.fall_videos.sort()
         self.not_fall_videos.sort()
 
-        for fall_video, fall_dir in (self.fall_videos, self.fall_dirs): 
+        for (fall_video, fall_dir) in zip(self.fall_videos, self.fall_dirs): 
             counter = 1
             cap = cv2.VideoCapture(fall_video)
-            ret, frame1 = cap.read()
-            prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            success, frame1 = cap.read()
+            try:
+                prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            except cv2.error as e:
+                print("Inside every folder in dataset it's expected a valid" +
+                "(non-empty) video with name equal to the folder + .mp4." +
+                "In your case, inside %s it's expected a %s video" 
+                % (data_folder + self.class0 + fall_dir, fall_video)
+                , file=sys.stderr)
+                exit(1)
             hsv = np.zeros_like(frame1)
             hsv[...,1] = 255
             path = data_folder + self.class0 +  '/' + fall_dir
-            while(1):
-                ret, frame2 = cap.read()
+            while True:
+                success, frame2 = cap.read()
+                if success == False:
+                    break
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
-                flow = cv2.calcOpticalFlowFarneback(prvs,next, None, 
-                                                    0.5, 3, 15, 3, 5, 1.2, 0)
+                flow = cv2.calcOpticalFlowFarneback(prvs, next, None, 
+                        0.5, 3, 15, 3, 5, 1.2, 0)
                 mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-                hsv[...,0] = ang * 180 / np.pi / 2
+                # todo: (ALERT) because of a unknown reason cartToPolar is 
+                # returning -inf for some mag positions and than normalize
+                # gets all 0...
+                for i in range(len(mag)):
+                    for j in range(len(mag[i])):
+                        if math.isnan(mag[i][j]) or math.isinf(mag[i][j]):
+                            mag[i][j] = 0
+                hsv[...,0] = ang*180/np.pi/2
                 hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5), 
-                        hsv[..., 0])
-                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5), 
-                        hsv[..., 2])
-                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5), 
-                        bgr)
+                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5) + 
+                        '.jpg', hsv[..., 0])
+                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5) +
+                        '.jpg', hsv[..., 2])
+                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5) + 
+                        '.jpg', bgr)
                 counter += 1
                 prvs = next
             cap.release()
             cv2.destroyAllWindows()
 
-        for not_fall_video, not_fall_dir in (self.not_fall_videos, self.not_fall_dirs):
+        '''
+            todo: turn this in a function
+        '''
+
+        for not_fall_video, not_fall_dir in zip(self.not_fall_videos, self.not_fall_dirs):
             counter = 1
             cap = cv2.VideoCapture(not_fall_video)
-            ret, frame1 = cap.read()
-            prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            success, frame1 = cap.read()
+            try:
+                prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            except cv2.error as e:
+                print("Inside every folder in dataset it's expected a valid" +
+                "(non-empty) video with name equal to the folder + .mp4." +
+                "In your case, inside %s it's expected a %s video" 
+                % (data_folder + self.class1 + fall_dir, fall_video)
+                , file=sys.stderr)
+                exit(1)
             hsv = np.zeros_like(frame1)
             hsv[...,1] = 255
             path = data_folder + self.class1 + '/' + not_fall_dir
-            while(1):
-                ret, frame2 = cap.read()
+            while True:
+                success, frame2 = cap.read()
+                if success == False:
+                    break
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
                 flow = cv2.calcOpticalFlowFarneback(prvs,next, None, 
                                                     0.5, 3, 15, 3, 5, 1.2, 0)
                 mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+                # todo: (ALERT) because of a unknown reason cartToPolar is 
+                # returning -inf for some mag positions and than normalize
+                # gets all 0...
+                for i in range(len(mag)):
+                    for j in range(len(mag[i])):
+                        if math.isnan(mag[i][j]) or math.isinf(mag[i][j]):
+                            mag[i][j] = 0
                 hsv[...,0] = ang * 180 / np.pi / 2
                 hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5), 
-                        hsv[..., 0])
-                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5), 
-                        hsv[..., 2])
-                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5), 
-                        bgr)
+                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5) + 
+                        '.jpg', hsv[..., 0])
+                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5) +
+                        '.jpg', hsv[..., 2])
+                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5) + 
+                        '.jpg', bgr)
                 counter += 1
                 prvs = next
             cap.release()
@@ -317,8 +358,7 @@ if __name__ == '__main__':
 
     fextractor = Fextractor(args.classes[0], args.classes[1], 
                 args.num_features[0], args.input_dim[0], args.input_dim[1])
-    #fextractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
-    fextractor.extract_optflow(args.data_folder[0])
+    fextractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
 
 '''
     todo: criar excecoes para facilitar o uso
