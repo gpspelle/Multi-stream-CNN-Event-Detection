@@ -41,7 +41,7 @@ class Fextractor:
         self.class1 = class1
         self.num_features = num_features
         self.folders = []
-        self.fall_disr = []
+        self.fall_dirs = []
         self.not_fall_dirs = []
         self.fall_videos = []
         self.not_fall_videos = []
@@ -118,21 +118,21 @@ class Fextractor:
         for fall_dir in self.fall_dirs:
             self.x_images = glob.glob(data_folder + self.class0 + '/' + 
                                  fall_dir + '/flow_x*.jpg')
-            if int(len(x_images)) >= 10:
+            if int(len(self.x_images)) >= 10:
                 self.folders.append(data_folder + self.class0 + '/' + fall_dir)
                 self.classes.append(0)
 
         for not_fall_dir in self.not_fall_dirs:
             self.x_images = glob.glob(data_folder + self.class1 + '/' +
                                  not_fall_dir + '/flow_x*.jpg')
-            if int(len(x_images)) >= 10:
+            if int(len(self.x_images)) >= 10:
                 self.folders.append(data_folder + self.class1 + '/' + 
                         not_fall_dir)
                 self.classes.append(1)
 
         for folder in self.folders:
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
-            self.nb_total_stacks += len(x_images)-sliding_height+1
+            self.nb_total_stacks += len(self.x_images)-sliding_height+1
 
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
@@ -158,16 +158,16 @@ class Fextractor:
         number = 0
         
         for folder, label in zip(self.folders, self.classes):
-            x_images = glob.glob(folder + '/flow_x*.jpg')
-            x_images.sort()
-            y_images = glob.glob(folder + '/flow_y*.jpg')
-            y_images.sort()
-            nb_stacks = len(x_images)-sliding_height+1
+            self.x_images = glob.glob(folder + '/flow_x*.jpg')
+            self.x_images.sort()
+            self.y_images = glob.glob(folder + '/flow_y*.jpg')
+            self.y_images.sort()
+            nb_stacks = len(self.x_images)-sliding_height+1
             # Here nb_stacks optical flow stacks will be stored
             flow = np.zeros(shape=(self.x_size, self.y_size, 2*sliding_height, 
                             nb_stacks), dtype=np.float64)
-            gen = self.generator(x_images,y_images)
-            for i in range(len(x_images)):
+            gen = self.generator(self.x_images, self.y_images)
+            for i in range(len(self.x_images)):
                 flow_x_file, flow_y_file = next(gen)
                 img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
                 img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
@@ -268,12 +268,27 @@ class Fextractor:
                 hsv[...,0] = ang*180/np.pi/2
                 hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+                '''
+                    todo: this isn't fine and only will work for urfd data set
+                '''
+                if self.x_size != 224 or self.y_size != 224:
+                    print("-input_dim 224 224 are obrigatory so far. sorry.",
+                           file=sys.stderr)
+                    exit(1)
+
+                crop = hsv[..., 0]
+                crop = crop[0:self.x_size, 320: 320+self.y_size]
                 cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5) + 
-                        '.jpg', hsv[..., 0])
+                        '.jpg', crop)
+                crop = hsv[..., 2]
+                crop = crop[0:self.x_size, 320: 320+self.y_size]
                 cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5) +
-                        '.jpg', hsv[..., 2])
+                        '.jpg', crop)
+                crop = bgr 
+                crop = crop[0:self.x_size, 320: 320+self.y_size]
                 cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5) + 
-                        '.jpg', bgr)
+                        '.jpg', crop)
                 counter += 1
                 prvs = next
             cap.release()
@@ -317,12 +332,27 @@ class Fextractor:
                 hsv[...,0] = ang * 180 / np.pi / 2
                 hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+                '''
+                    todo: this isn't fine and only will work for urfd data set
+                '''
+                if self.x_size != 224 or self.y_size != 224:
+                    print("-input_dim 224 224 are obrigatory so far. sorry.",
+                           file=sys.stderr)
+                    exit(1)
+
+                crop = hsv[..., 0]
+                crop = crop[0:self.x_size, 320: 320+self.y_size]
                 cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5) + 
-                        '.jpg', hsv[..., 0])
+                        '.jpg', crop)
+                crop = hsv[..., 2]
+                crop = crop[0:self.x_size, 320: 320+self.y_size]
                 cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5) +
-                        '.jpg', hsv[..., 2])
+                        '.jpg', crop)
+                crop = bgr
+                crop = crop[0:self.x_size, 320: 320+self.y_size]
                 cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5) + 
-                        '.jpg', bgr)
+                        '.jpg', crop)
                 counter += 1
                 prvs = next
             cap.release()
