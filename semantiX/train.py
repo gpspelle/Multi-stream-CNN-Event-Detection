@@ -46,7 +46,7 @@ class Train:
     weight_0, mini_batch_size, id, batch_norm):
 
         '''
-            Parameters needed to train
+            Necessary parameters to train
 
         '''
 
@@ -231,7 +231,7 @@ class Train:
         self.plot_training_info(exp, ['accuracy', 'loss'], True, 
                            history.history)
 
-        self.classifier.save('urfd_classifier.h5')
+        self.classifier.save('classifier_' + self.id + '.h5')
 
         # ==================== EVALUATION ========================        
         predicted = self.classifier.predict(np.asarray(X))

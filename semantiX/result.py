@@ -37,17 +37,19 @@ from matplotlib import pyplot as plt
 
 class Result:
 
-    def __init__(self, class0, class1, threshold, extract_id):
+    def __init__(self, class0, class1, threshold, id):
 
         self.features_key = 'features' 
         self.labels_key = 'labels'
         self.samples_key = 'samples'
         self.num_key = 'num'
 
-        self.features_file = "features_" + extract_id + ".h5"
-        self.labels_file = "labels_" + extract_id + ".h5"
-        self.samples_file = "samples_" + extract_id + ".h5"
-        self.num_file = "num_" + extract_id + ".h5"
+        self.id = id
+
+        self.features_file = "features_" + id + ".h5"
+        self.labels_file = "labels_" + id + ".h5"
+        self.samples_file = "samples_" + id + ".h5"
+        self.num_file = "num_" + id + ".h5"
 
         self.class0 = class0
         self.class1 = class1
@@ -57,7 +59,7 @@ class Result:
         self.classifier = None
 
     def pre_result(self):
-        self.classifier = load_model('urfd_classifier.h5')
+        self.classifier = load_model('classifier_' + self.id + '.h5')
 
         # Reading information extracted
         h5features = h5py.File(self.features_file, 'r')
@@ -190,7 +192,8 @@ if __name__ == '__main__':
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
     argp.add_argument("-id", dest='id', type=str, nargs=1,
-        help='Usage: -id <identifier_to_this_features>', required=True)
+        help='Usage: -id <identifier_to_this_features_and_classifier>', 
+        required=True)
 
     try:
         args = argp.parse_args()
