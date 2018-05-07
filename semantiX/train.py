@@ -43,7 +43,7 @@ from matplotlib import pyplot as plt
 class Train:
 
     def __init__(self, threshold, num_features, epochs, opt, learning_rate, 
-    weight_0, mini_batch_size, extract_id, batch_norm):
+    weight_0, mini_batch_size, id, batch_norm):
 
         '''
             Parameters needed to train
@@ -55,10 +55,11 @@ class Train:
         self.samples_key = 'samples'
         self.num_key = 'num'
 
-        self.features_file = "features_" + extract_id + ".h5"
-        self.labels_file = "labels_" + extract_id + ".h5"
-        self.samples_file = "samples_" + extract_id + ".h5"
-        self.num_file = "num_" + extract_id + ".h5"
+        self.id = id
+        self.features_file = "features_" + id + ".h5"
+        self.labels_file = "labels_" + id + ".h5"
+        self.samples_file = "samples_" + id + ".h5"
+        self.num_file = "num_" + id + ".h5"
 
         self.threshold = threshold
         self.num_features = num_features
@@ -164,7 +165,7 @@ class Train:
 
             # Store only the first classifier
             if first == 0:
-                self.classifier.save('urfd_classifier.h5')
+                self.classifier.save('classifier_' + self.id + '.h5')
                 first = 1
 
             # ==================== EVALUATION ======================== 
@@ -393,8 +394,9 @@ if __name__ == '__main__':
             help='Usage: -w0 <weight_for_fall_class>', required=True)
     argp.add_argument("-mini_batch", dest='mini_batch', type=int, nargs=1,
             help='Usage: -mini_batch <mini_batch_size>', required=True)
-    argp.add_argument("-id", dest='extract_id', type=str, nargs=1,
-        help='Usage: -id <identifier_to_this_features>', required=True)
+    argp.add_argument("-id", dest='id', type=str, nargs=1,
+        help='Usage: -id <identifier_to_this_features_and_classifier>', 
+        required=True)
     argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs=1,
         help='Usage: -batch_norm <True/False>', required=True)
     argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
@@ -410,7 +412,7 @@ if __name__ == '__main__':
         exit(1)
 
     train = Train(args.thresh[0], args.num_feat[0], args.ep[0], args.opt[0], 
-            args.lr[0], args.w0[0], args.mini_batch[0], args.extract_id[0], 
+            args.lr[0], args.w0[0], args.mini_batch[0], args.id[0], 
             args.batch_norm[0])
 
     if args.actions[0] == 'train':
