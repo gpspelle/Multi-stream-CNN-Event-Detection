@@ -255,7 +255,7 @@ class Fextractor:
                     break
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
                 flow = cv2.calcOpticalFlowFarneback(prvs, next, None, 
-                        0.702, 5, 10, 2, 7, 1.5, 256)
+                        0.702, 5, 10, 2, 7, 1.5, cv2.OPTFLOW_FARNEBACK_GAUSSIAN )
                 mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
                 # todo: (ALERT) because of a unknown reason cartToPolar is 
                 # returning -inf for some mag positions and than normalize
