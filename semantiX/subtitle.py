@@ -73,13 +73,13 @@ class Subtitle:
         # todo: change X and Y variable names
         X, Y, predicted = self.pre_result()
 
-        for i in range(len(predicted)):
-            if predicted[i] < self.threshold:
-                predicted[i] = 0
-            else:
-                predicted[i] = 1
+        #for i in range(len(predicted)):
+        #    if predicted[i] < self.threshold:
+        #        predicted[i] = 0
+        #    else:
+        #        predicted[i] = 1
         # Array of predictions 0/1
-        predicted = np.asarray(predicted).astype(int)
+        #predicted = np.asarray(predicted).astype(int)
        
         h5samples = h5py.File(self.samples_file, 'r')
         h5num = h5py.File(self.num_file, 'r')
@@ -126,12 +126,6 @@ class Subtitle:
                 if i >= len(predicted):
                    break 
 
-                #m0, s0 = divmod(time, 60.0)
-                #h0, m0 = divmod(m0, 60.0)
-                #m1, s1 = divmod(time + 1 / fps, 60.0)
-                #h1, m1 = divmod(m1, 60.0)
-                
-                #print(time)
                 time += (1 / fps + 0.001)
                 file_write.write("\n")
                 file_write.write("%d\n" % subtitle_cnt)
@@ -140,7 +134,7 @@ class Subtitle:
                 time_init = time_init[:-3]
                 time_end = time_end[:-3]
                 file_write.write(time_init.replace(".", ",", 1) + ' --> ' + time_end.replace(".", ",", 1) + '\n')
-                file_write.write("Output: %d\n" % predicted[i])
+                file_write.write("Output: %f\n" % predicted[i])
                 file_write.write("Truth: %d\n" % Y[i])
                 
             inic += all_samples[x][0]

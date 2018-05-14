@@ -255,7 +255,7 @@ class Fextractor:
                     break
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
                 flow = cv2.calcOpticalFlowFarneback(prvs, next, None, 
-                        0.702, 5, 10, 2, 7, 1.5, cv2.OPTFLOW_FARNEBACK_GAUSSIAN )
+                        0.702, 5, 10, 2, 7, 1.5, 0)
                 mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
                 # todo: (ALERT) because of a unknown reason cartToPolar is 
                 # returning -inf for some mag positions and than normalize
@@ -271,8 +271,8 @@ class Fextractor:
                 '''
                     todo: this isn't fine and only will work for urfd data set
                 '''
-                if self.x_size != 224 or self.y_size != 224:
-                    print("-input_dim 224 224 are obrigatory so far. sorry.",
+                if self.x_size != 240 or self.y_size != 320:
+                    print("-input_dim 240 320 are obrigatory so far. sorry.",
                            file=sys.stderr)
                     exit(1)
 
