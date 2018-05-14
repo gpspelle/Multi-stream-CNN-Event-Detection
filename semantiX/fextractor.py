@@ -184,7 +184,7 @@ class Fextractor:
             flow = flow - np.tile(flow_mean[...,np.newaxis], 
                     (1, 1, 1, flow.shape[3]))
             # Transpose for channel ordering (Tensorflow in this case)
-            flow = np.transpose(flow, (3, 2, 0, 1)) 
+            #flow = np.transpose(flow, (3, 2, 0, 1)) 
             predictions = np.zeros((nb_stacks, self.num_features), 
                     dtype=np.float64)
             truth = np.zeros((nb_stacks, 1), dtype='int8')
