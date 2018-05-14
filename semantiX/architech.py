@@ -41,6 +41,8 @@ class Architech:
         self.num_features = num_features
         self.x_size = x_size
         self.y_size = y_size
+        
+        sliding_height = 10
 
         if self.arch_name == 'VGG16':
             self.layers_name = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 
@@ -49,8 +51,8 @@ class Architech:
                     'fc8']
             self.model = Sequential()
 
-            self.model.add(ZeroPadding2D((1, 1), input_shape=(20, self.x_size, 
-                           self.y_size)))
+            self.model.add(ZeroPadding2D((1, 1), input_shape=(2*sliding_height,
+                           self.x_size, self.y_size)))
             self.model.add(Convolution2D(64, (3, 3), activation='relu', 
                            name='conv1_1'))
             self.model.add(ZeroPadding2D((1, 1)))
