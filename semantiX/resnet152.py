@@ -1,4 +1,6 @@
-import cv2
+import sys
+import h5py
+import argparse
 import numpy as np
 import copy
 
@@ -112,8 +114,8 @@ def identity_block(input_tensor, kernel_size, filters, stage, block):
     bn_base = 'bn' + str(stage) + block + '_branch'
     scale_base = 'scale' + str(stage) + block + '_branch'
 
-    x = Conv2D(nb_filter1, (1, 1), name=conv_base + '2a', use_bias=False)
-                                                                 (input_tensor)
+    x = Conv2D(nb_filter1, (1, 1), name=conv_base + '2a',
+            use_bias=False)(input_tensor)
     x = BatchNormalization(epsilon=eps, axis=bn_axis, name=bn_base + '2a')(x)
     x = Scale(axis=bn_axis, name=scale_base + '2a')(x)
     x = Activation('relu', name=conv_base + '2a_relu')(x)
@@ -151,8 +153,8 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2,2)):
     bn_base = 'bn' + str(stage) + block + '_branch'
     scale_base = 'scale' + str(stage) + block + '_branch'
 
-    x = Conv2D(nb_filter1, (1, 1), strides=strides, name=conv_base + '2a', 
-                                                  use_bias=False)(input_tensor)
+    x = Conv2D(nb_filter1, (1, 1), strides=strides, 
+            name=conv_base + '2a', use_bias=False)(input_tensor)
     x = BatchNormalization(epsilon=eps, axis=bn_axis, name=bn_base + '2a')(x)
     x = Scale(axis=bn_axis, name=scale_base + '2a')(x)
     x = Activation('relu', name=conv_base + '2a_relu')(x)
@@ -170,8 +172,8 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2,2)):
 
     shortcut = Conv2D(nb_filter3, (1, 1), strides=strides,
                              name=conv_base + '1', use_bias=False)(input_tensor)
-    shortcut = BatchNormalization(epsilon=eps, axis=bn_axis, name=bn_base + '1')
-                                                                     (shortcut)
+    shortcut = BatchNormalization(epsilon=eps, axis=bn_axis, 
+            name=bn_base + '1')(shortcut)
     shortcut = Scale(axis=bn_axis, name=scale_base + '1')(shortcut)
 
     x = add([x, shortcut], name='res' + str(stage) + block)
@@ -195,7 +197,7 @@ class ResNet152:
         # Handle Dimension Ordering for different backends
         global bn_axis
         bn_axis = 3
-        img_input = Input(shape=(x_size, y_size, 2 * sliding_height), 
+        img_input = Input(shape=(x_size, y_size, 3), 
                     name='data')
                 
         x = ZeroPadding2D((3, 3), name='conv1_zeropadding')(img_input)
@@ -223,8 +225,8 @@ class ResNet152:
 
         x_fc = AveragePooling2D((7, 7), name='avg_pool')(x)
         x_fc = Flatten()(x_fc)
-        x_fc = Dense(num_features, activation='softmax', kernel_initializer=
-                'glorot_uniform', name='fc1000')(x_fc)
+        x_fc = Dense(1000, activation='softmax', 
+                kernel_initializer='glorot_uniform', name='fc1000')(x_fc)
 
         self.model = Model(img_input, x_fc)
     
@@ -250,8 +252,12 @@ if __name__ == '__main__':
     except:
         argp.print_help(sys.stderr)
         exit(1)
+
+    '''
+        todo: treinar no UCF101
+    '''
     
-    arch = ResNet152(args.weight[0], args.num_features[0], args.input_dim[0], 
+    arch = ResNet152(args.num_features[0], args.input_dim[0], 
            args.input_dim[1])
         
     arch.weight_init(args.weight[0])
