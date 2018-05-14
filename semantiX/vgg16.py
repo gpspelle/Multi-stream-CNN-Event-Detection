@@ -100,6 +100,13 @@ class VGG16:
             kernel_initializer='glorot_uniform'))
 
     def weight_init(self, weights_file):
+
+        '''
+            todo: test if 
+            self.model.load_weights(weights_file)
+            substitui essa funcao toda
+        '''
+
         '''
         Input:
         * weights_file: path to a hdf5 file containing weights and biases to a
@@ -156,7 +163,8 @@ if __name__ == '__main__':
         
     arch.weight_init(args.weight[0])
 
-    arch.model.save(args.cnn_arch[0])
+    print("Saving your CNN as VGG16")
+    arch.model.save('VGG16')
 
 '''
     todo: criar excecoes para facilitar o uso

@@ -62,6 +62,7 @@ class Fextractor:
 
     def extract(self, extract_id, model, data_folder):
 
+        self.get_dirs(data_folder)
         self.extract_optflow(data_folder)
 
         extractor_model = load_model(model)
@@ -184,15 +185,15 @@ class Fextractor:
             flow = flow - np.tile(flow_mean[...,np.newaxis], 
                     (1, 1, 1, flow.shape[3]))
             # Transpose for channel ordering (Tensorflow in this case)
-            #flow = np.transpose(flow, (3, 2, 0, 1)) 
+            flow = np.transpose(flow, (3, 0, 1, 2)) 
             predictions = np.zeros((nb_stacks, self.num_features), 
                     dtype=np.float64)
             truth = np.zeros((nb_stacks, 1), dtype='int8')
             # Process each stack: do the feed-forward pass and store in the 
             # hdf5 file the output
             for i in range(nb_stacks):
-                prediction = extractor_model.predict(np.expand_dims(
-                                                                flow[i, ...],0))
+                prediction = extractor_model.predict(np.expand_dims(flow[i, ...],
+                                                                             0))
                 predictions[i, ...] = prediction
                 truth[i] = label
 
@@ -207,31 +208,6 @@ class Fextractor:
         h5num_classes.close()
 
     def extract_optflow(self, data_folder):
-
-        # Fill the folders and classes arrays with all the paths to the data
-        self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
-                        if os.path.isdir(os.path.join(data_folder, 
-                        self.class0, f))]
-
-        
-
-        self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
-                         if os.path.isdir(os.path.join(data_folder, 
-                         self.class1, f))]
-
-        self.fall_dirs.sort()
-        self.not_fall_dirs.sort()
-
-        for f in self.fall_dirs:
-            self.fall_videos.append(data_folder + self.class0 + '/' + f +
-                                '/' + f + '.mp4')
-
-        for f in self.not_fall_dirs:
-            self.not_fall_videos.append(data_folder + self.class1 + '/' +
-                                f + '/' + f + '.mp4')
-
-        self.fall_videos.sort()
-        self.not_fall_videos.sort()
 
         for (fall_video, fall_dir) in zip(self.fall_videos, self.fall_dirs): 
             counter = 1
@@ -356,6 +332,34 @@ class Fextractor:
                 prvs = next
             cap.release()
             cv2.destroyAllWindows()
+
+    def get_dirs(self, data_folder):
+
+        # Fill the folders and classes arrays with all the paths to the data
+        self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
+                        if os.path.isdir(os.path.join(data_folder, 
+                        self.class0, f))]
+
+        
+
+        self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
+                         if os.path.isdir(os.path.join(data_folder, 
+                         self.class1, f))]
+
+        self.fall_dirs.sort()
+        self.not_fall_dirs.sort()
+
+        for f in self.fall_dirs:
+            self.fall_videos.append(data_folder + self.class0 + '/' + f +
+                                '/' + f + '.mp4')
+
+        for f in self.not_fall_dirs:
+            self.not_fall_videos.append(data_folder + self.class1 + '/' +
+                                f + '/' + f + '.mp4')
+
+        self.fall_videos.sort()
+        self.not_fall_videos.sort()
+
         
 if __name__ == '__main__':
     print("***********************************************************",
