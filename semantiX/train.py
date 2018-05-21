@@ -386,9 +386,7 @@ if __name__ == '__main__':
 
     argp = argparse.ArgumentParser(description='Do training tasks')
     argp.add_argument("-actions", dest='actions', type=str, nargs=1,
-            help='Usage: -actions <train/cross-train> \
-                  Example: -actions train \
-                           -actions cross-train', required=True)
+            help='Usage: -actions train or -actions cross-train', required=True)
 
     '''
         todo: make this weight_0 (w0) more general for multiple classes
@@ -418,9 +416,6 @@ if __name__ == '__main__':
         required=True)
     argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs=1,
         help='Usage: -batch_norm <True/False>', required=True)
-    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
-            help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
-            required=True)
     argp.add_argument("-nsplits", dest='nsplits', type=int, nargs=1, 
     help='Usage: -nsplits <K: many splits you want (>1)>', required=False)
 

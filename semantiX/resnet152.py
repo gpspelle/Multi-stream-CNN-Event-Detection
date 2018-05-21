@@ -197,7 +197,7 @@ class ResNet152:
         # Handle Dimension Ordering for different backends
         global bn_axis
         bn_axis = 3
-        img_input = Input(shape=(x_size, y_size, 3), 
+        img_input = Input(shape=(x_size, y_size, 20), 
                     name='data')
                 
         x = ZeroPadding2D((3, 3), name='conv1_zeropadding')(img_input)
