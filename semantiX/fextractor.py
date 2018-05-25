@@ -66,9 +66,9 @@ class Fextractor:
     def extract(self, extract_id, model, data_folder):
 
         self.get_dirs(data_folder)
-        self.extract_optflow(data_folder)
+        #self.extract_optflow(data_folder)
 
-        extractor_model = load_model(model, custom_objects={'Scale': Scale})
+        extractor_model = load_model(model)
         
         features_file = "features_" + extract_id + ".h5"
         labels_file = "labels_" + extract_id + ".h5"
@@ -105,7 +105,7 @@ class Fextractor:
         '''
 
         try:
-            flow_mean = sio.loadmat('imagenet_mean_flow.mat')['image_mean']
+            flow_mean = sio.loadmat('flow_mean.mat')['image_mean']
         except:
             print("***********************************************************",
                 file=sys.stderr)

@@ -122,7 +122,7 @@ class Result:
         print('F1-measure: {}'.format(f1))
         print('Accuracy: {}'.format(accuracy))
 
-        self.check_videos(Y, predicted)
+        #self.check_videos(Y, predicted)
 
     def check_videos(self, _y2, predicted):
         h5samples = h5py.File(self.samples_file, 'r')
