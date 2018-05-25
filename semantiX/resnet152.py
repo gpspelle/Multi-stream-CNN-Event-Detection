@@ -3,7 +3,6 @@ import h5py
 import argparse
 import numpy as np
 import copy
-
 from keras.layers import Input, Dense, Conv2D, MaxPooling2D, AveragePooling2D, \
         ZeroPadding2D, Flatten, Activation, add
 from keras.layers.normalization import BatchNormalization
@@ -197,7 +196,7 @@ class ResNet152:
         # Handle Dimension Ordering for different backends
         global bn_axis
         bn_axis = 3
-        img_input = Input(shape=(x_size, y_size, 20), 
+        img_input = Input(shape=(x_size, y_size, 2*sliding_height), 
                     name='data')
                 
         x = ZeroPadding2D((3, 3), name='conv1_zeropadding')(img_input)
@@ -225,7 +224,7 @@ class ResNet152:
 
         x_fc = AveragePooling2D((7, 7), name='avg_pool')(x)
         x_fc = Flatten()(x_fc)
-        x_fc = Dense(1000, activation='softmax', 
+        x_fc = Dense(num_features, activation='softmax', 
                 kernel_initializer='glorot_uniform', name='fc1000')(x_fc)
 
         self.model = Model(img_input, x_fc)
