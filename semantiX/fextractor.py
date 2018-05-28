@@ -68,12 +68,12 @@ class Fextractor:
         self.get_dirs(data_folder)
 
         # Extracting Fall optical flow
-        self.extract_optflow(data_folder, self.fall_videos, self.fall_dirs,
-                             self.class0)
+        #self.extract_optflow(data_folder, self.fall_videos, self.fall_dirs,
+        #                     self.class0)
 
         # Extracting NotFall optical flow
-        self.extract_optflow(data_folder, self.not_fall_videos,
-                             self.not_fall_dirs, self.class1)
+        #self.extract_optflow(data_folder, self.not_fall_videos,
+        #                     self.not_fall_dirs, self.class1)
 
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
@@ -112,7 +112,7 @@ class Fextractor:
         '''
 
         try:
-            flow_mean = sio.loadmat('imagenet_mean_flow.mat')['image_mean']
+            flow_mean = sio.loadmat('flow_mean.mat')['image_mean']
         except:
             print("***********************************************************",
                 file=sys.stderr)
@@ -217,7 +217,7 @@ class Fextractor:
         h5samples.close()
         h5num_classes.close()
 
-    def extract_optflow(self, data_folder, videos, dirs, class):
+    def extract_optflow(self, data_folder, videos, dirs, class_):
 
         for (video, dir) in zip(videos, dirs): 
             counter = 1
@@ -229,12 +229,12 @@ class Fextractor:
                 print("Inside every folder in dataset it's expected a valid" +
                 "(non-empty) video with name equal to the folder + .mp4." +
                 "In your case, inside %s it's expected a %s video" 
-                % (data_folder + class + dir, video)
+                % (data_folder + class_ + dir, video)
                 , file=sys.stderr)
                 exit(1)
             hsv = np.zeros_like(frame1)
             hsv[...,1] = 255
-            path = data_folder + class +  '/' + dir
+            path = data_folder + class_ +  '/' + dir
             while True:
                 success, frame2 = cap.read()
                 if success == False:
