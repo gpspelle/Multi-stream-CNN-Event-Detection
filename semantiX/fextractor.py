@@ -174,10 +174,51 @@ class Fextractor:
             self.y_images.sort()
             nb_stacks = len(self.x_images)-sliding_height+1
             # Here nb_stacks optical flow stacks will be stored
-            flow = np.zeros(shape=(self.x_size, self.y_size, 2*sliding_height, 
-                            nb_stacks), dtype=np.float64)
+
+            amount_stacks = 100
+            fraction_stacks = nb_stacks // amount_stacks
             gen = self.generator(self.x_images, self.y_images)
-            for i in range(len(self.x_images)):
+            for fraction in range(fraction_stacks):
+                flow = np.zeros(shape=(self.x_size, self.y_size, 2*sliding_height, 
+                                amount_stacks), dtype=np.float64)
+                for i in range(amount_stacks):
+                    flow_x_file, flow_y_file = next(gen)
+                    img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
+                    img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
+                    # Assign an image i to the jth stack in the kth position,
+                    # but also in the j+1th stack in the k+1th position and so on 
+                    # (for sliding window) 
+                    for s in list(reversed(range(min(sliding_height,i+1)))):
+                        if i-s < amount_stacks:
+                            flow[:,:,2*s,  i-s] = img_x
+                            flow[:,:,2*s+1,i-s] = img_y
+                    del img_x,img_y
+                    gc.collect()
+                    
+                # Subtract mean
+                flow = flow - np.tile(flow_mean[...,np.newaxis], 
+                        (1, 1, 1, flow.shape[3]))
+                # Transpose for channel ordering (Tensorflow in this case)
+                flow = np.transpose(flow, (3, 0, 1, 2)) 
+                predictions = np.zeros((amount_stacks, self.num_features), 
+                        dtype=np.float64)
+                truth = np.zeros((amount_stacks, 1), dtype='int8')
+                # Process each stack: do the feed-forward pass and store in the 
+                # hdf5 file the output
+                for i in range(amount_stacks):
+                    prediction = extractor_model.predict(np.expand_dims(flow[i, ...],
+                                                                                 0))
+                    predictions[i, ...] = prediction
+                    truth[i] = label
+
+                dataset_features[cont:cont+amount_stacks,:] = predictions
+                dataset_labels[cont:cont+amount_stacks,:] = truth
+
+
+            amount_stacks = nb_stacks % amount_stacks
+            flow = np.zeros(shape=(self.x_size, self.y_size, 2*sliding_height, 
+                            amount_stacks), dtype=np.float64)
+            for i in range(amount_stacks + sliding_height - 1):
                 flow_x_file, flow_y_file = next(gen)
                 img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
                 img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
@@ -185,7 +226,7 @@ class Fextractor:
                 # but also in the j+1th stack in the k+1th position and so on 
                 # (for sliding window) 
                 for s in list(reversed(range(min(sliding_height,i+1)))):
-                    if i-s < nb_stacks:
+                    if i-s < amount_stacks:
                         flow[:,:,2*s,  i-s] = img_x
                         flow[:,:,2*s+1,i-s] = img_y
                 del img_x,img_y
@@ -196,22 +237,23 @@ class Fextractor:
                     (1, 1, 1, flow.shape[3]))
             # Transpose for channel ordering (Tensorflow in this case)
             flow = np.transpose(flow, (3, 0, 1, 2)) 
-            predictions = np.zeros((nb_stacks, self.num_features), 
+            predictions = np.zeros((amount_stacks, self.num_features), 
                     dtype=np.float64)
-            truth = np.zeros((nb_stacks, 1), dtype='int8')
+            truth = np.zeros((amount_stacks, 1), dtype='int8')
             # Process each stack: do the feed-forward pass and store in the 
             # hdf5 file the output
-            for i in range(nb_stacks):
+            for i in range(amount_stacks):
                 prediction = extractor_model.predict(np.expand_dims(flow[i, ...],
                                                                              0))
                 predictions[i, ...] = prediction
                 truth[i] = label
 
-            dataset_features[cont:cont+nb_stacks,:] = predictions
-            dataset_labels[cont:cont+nb_stacks,:] = truth
+            dataset_features[cont:cont+amount_stacks,:] = predictions
+            dataset_labels[cont:cont+amount_stacks,:] = truth
             dataset_samples[number] = nb_stacks
             number+=1
             cont += nb_stacks
+
         h5features.close()
         h5labels.close()
         h5samples.close()
