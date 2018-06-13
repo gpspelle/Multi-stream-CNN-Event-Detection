@@ -23,18 +23,19 @@ from keras.models import load_model
 
 class Subtitle:
 
-    def __init__(self, data, class0, class1, threshold, id):
+    def __init__(self, data, class0, class1, threshold, fid, cid):
        
         self.features_key = 'features' 
         self.labels_key = 'labels'
         self.samples_key = 'samples'
         self.num_key = 'num'
-        self.id = id
+        self.fid = fid
+        self.cid = cid
 
-        self.features_file = "features_" + id + ".h5"
-        self.labels_file = "labels_" + id + ".h5"
-        self.samples_file = "samples_" + id + ".h5"
-        self.num_file = "num_" + id + ".h5"
+        self.features_file = "features_" + fid + ".h5"
+        self.labels_file = "labels_" + fid + ".h5"
+        self.samples_file = "samples_" + fid + ".h5"
+        self.num_file = "num_" + fid + ".h5"
     
         self.fall_videos = []
         self.not_fall_videos = []
@@ -73,13 +74,13 @@ class Subtitle:
         # todo: change X and Y variable names
         X, Y, predicted = self.pre_result()
 
-        #for i in range(len(predicted)):
-        #    if predicted[i] < self.threshold:
-        #        predicted[i] = 0
-        #    else:
-        #        predicted[i] = 1
+        for i in range(len(predicted)):
+            if predicted[i] < self.threshold:
+                predicted[i] = 0
+            else:
+                predicted[i] = 1
         # Array of predictions 0/1
-        #predicted = np.asarray(predicted).astype(int)
+        predicted = np.asarray(predicted).astype(int)
        
         h5samples = h5py.File(self.samples_file, 'r')
         h5num = h5py.File(self.num_file, 'r')
@@ -140,7 +141,7 @@ class Subtitle:
             inic += all_samples[x][0]
 
     def pre_result(self):
-        self.classifier = load_model('classifier_' + self.id + '.h5')
+        self.classifier = load_model('classifier_' + self.cid + '.h5')
 
         # Reading information extracted
         h5features = h5py.File(self.features_file, 'r')
@@ -187,8 +188,11 @@ if __name__ == '__main__':
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-id", dest='id', type=str, nargs=1,
-        help='Usage: -id <identifier_to_this_features_and_classifier>', 
+    argp.add_argument("-fid", dest='fid', type=str, nargs=1,
+        help='Usage: -id <identifier_to_features>', 
+        required=True)
+    argp.add_argument("-cid", dest='cid', type=str, nargs=1,
+        help='Usage: -id <identifier_to_classifier>', 
         required=True)
 
     try:
@@ -198,7 +202,7 @@ if __name__ == '__main__':
         exit(1)
 
     subt = Subtitle(args.data[0], args.classes[0], args.classes[1], args.thresh[0], 
-                args.id[0])
+                args.fid[0], args.cid[0])
 
     subt.create_subtitle()
 

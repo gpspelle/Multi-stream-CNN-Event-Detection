@@ -175,7 +175,7 @@ class Fextractor:
             nb_stacks = len(self.x_images)-sliding_height+1
             # Here nb_stacks optical flow stacks will be stored
 
-            amount_stacks = 100
+            amount_stacks = 100 
             fraction_stacks = nb_stacks // amount_stacks
             gen = self.generator(self.x_images, self.y_images)
             for fraction in range(fraction_stacks):
@@ -186,8 +186,8 @@ class Fextractor:
                     img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
                     img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
                     # Assign an image i to the jth stack in the kth position,
-                    # but also in the j+1th stack in the k+1th position and so on 
-                    # (for sliding window) 
+                    # but also in the j+1th stack in the k+1th position and so 
+                    # on (for sliding window) 
                     for s in list(reversed(range(min(sliding_height,i+1)))):
                         if i-s < amount_stacks:
                             flow[:,:,2*s,  i-s] = img_x
@@ -206,18 +206,19 @@ class Fextractor:
                 # Process each stack: do the feed-forward pass and store in the 
                 # hdf5 file the output
                 for i in range(amount_stacks):
-                    prediction = extractor_model.predict(np.expand_dims(flow[i, ...],
-                                                                                 0))
+                    prediction = extractor_model.predict(
+                                                np.expand_dims(flow[i, ...], 0))
                     predictions[i, ...] = prediction
                     truth[i] = label
 
                 dataset_features[cont:cont+amount_stacks,:] = predictions
                 dataset_labels[cont:cont+amount_stacks,:] = truth
-
+                cont += amount_stacks
 
             amount_stacks = nb_stacks % amount_stacks
             flow = np.zeros(shape=(self.x_size, self.y_size, 2*sliding_height, 
                             amount_stacks), dtype=np.float64)
+
             for i in range(amount_stacks + sliding_height - 1):
                 flow_x_file, flow_y_file = next(gen)
                 img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
@@ -252,7 +253,7 @@ class Fextractor:
             dataset_labels[cont:cont+amount_stacks,:] = truth
             dataset_samples[number] = nb_stacks
             number+=1
-            cont += nb_stacks
+            cont += amount_stacks
 
         h5features.close()
         h5labels.close()
