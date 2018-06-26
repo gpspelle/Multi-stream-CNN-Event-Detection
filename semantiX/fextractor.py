@@ -67,14 +67,6 @@ class Fextractor:
 
         self.get_dirs(data_folder)
 
-        # Extracting Fall optical flow
-        #self.extract_optflow(data_folder, self.fall_videos, self.fall_dirs,
-        #                     self.class0)
-
-        # Extracting NotFall optical flow
-        #self.extract_optflow(data_folder, self.not_fall_videos,
-        #                     self.not_fall_dirs, self.class1)
-
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
         features_file = "features_" + extract_id + ".h5"
@@ -125,12 +117,15 @@ class Fextractor:
                 file=sys.stderr)
             exit(1)
 
+        dirs = []
+
         for fall_dir in self.fall_dirs:
             self.x_images = glob.glob(data_folder + self.class0 + '/' + 
                                  fall_dir + '/flow_x*.jpg')
             if int(len(self.x_images)) >= 10:
                 self.folders.append(data_folder + self.class0 + '/' + fall_dir)
-                self.classes.append(0)
+                dirs.append(fall_dir)
+                self.classes.append(self.class0)
 
         for not_fall_dir in self.not_fall_dirs:
             self.x_images = glob.glob(data_folder + self.class1 + '/' +
@@ -138,7 +133,8 @@ class Fextractor:
             if int(len(self.x_images)) >= 10:
                 self.folders.append(data_folder + self.class1 + '/' + 
                         not_fall_dir)
-                self.classes.append(1)
+                dirs.append(not_fall_dir)
+                self.classes.append(self.class1)
 
         for folder in self.folders:
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
@@ -167,11 +163,15 @@ class Fextractor:
         cont = 0
         number = 0
         
-        for folder, label in zip(self.folders, self.classes):
+        for folder, dir, classe in zip(self.folders, dirs, self.classes):
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
             self.x_images.sort()
             self.y_images = glob.glob(folder + '/flow_y*.jpg')
             self.y_images.sort()
+            label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
+            label_values = np.load(label[0])
+            label_values = np.delete(label_values, 0)
+
             nb_stacks = len(self.x_images)-sliding_height+1
             # Here nb_stacks optical flow stacks will be stored
 
@@ -209,7 +209,7 @@ class Fextractor:
                     prediction = extractor_model.predict(
                                                 np.expand_dims(flow[i, ...], 0))
                     predictions[i, ...] = prediction
-                    truth[i] = label
+                    truth[i] = self.get_media_optflow(label_values, i+(fraction*amount_stacks), sliding_height)
 
                 dataset_features[cont:cont+amount_stacks,:] = predictions
                 dataset_labels[cont:cont+amount_stacks,:] = truth
@@ -247,7 +247,8 @@ class Fextractor:
                 prediction = extractor_model.predict(np.expand_dims(flow[i, ...],
                                                                              0))
                 predictions[i, ...] = prediction
-                truth[i] = label
+                # todo: this 100 value is related to initial amount_stacks
+                truth[i] = self.get_media_optflow(label_values, fraction_stacks* 100 + i, sliding_height)
 
             dataset_features[cont:cont+amount_stacks,:] = predictions
             dataset_labels[cont:cont+amount_stacks,:] = truth
@@ -259,6 +260,16 @@ class Fextractor:
         h5labels.close()
         h5samples.close()
         h5num_classes.close()
+
+    def get_media_optflow(self, label_values, i, sliding_height):
+        soma = 0
+        for j in range(i, i + sliding_height):
+            soma += label_values[i]
+
+        if soma / sliding_height >= 0.5:
+            return 1
+        else:
+            return 0
 
     def extract_optflow(self, data_folder, videos, dirs, class_):
 

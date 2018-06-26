@@ -152,21 +152,18 @@ class Subtitle:
         self.all_features = h5features[self.features_key]
         self.all_labels = np.asarray(h5labels[self.labels_key])
 
-        self.falls = np.asarray(np.where(self.all_labels==0)[0])
-        self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
+        #self.falls = np.asarray(np.where(self.all_labels==0)[0])
+        #self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
    
-        self.falls.sort()
-        self.no_falls.sort()
-
         # todo: change X and Y variable names
-        X = np.concatenate((self.all_features[self.falls, ...], 
-            self.all_features[self.no_falls, ...]))
-        Y = np.concatenate((self.all_labels[self.falls, ...], 
-            self.all_labels[self.no_falls, ...]))
+        #X = np.concatenate((self.all_features[self.falls, ...], 
+        #    self.all_features[self.no_falls, ...]))
+        #Y = np.concatenate((self.all_labels[self.falls, ...], 
+        #    self.all_labels[self.no_falls, ...]))
        
-        predicted = self.classifier.predict(np.asarray(X))
+        predicted = self.classifier.predict(np.asarray(self.all_features))
 
-        return X, Y, predicted
+        return self.all_features, self.all_labels, predicted
 
 if __name__ == '__main__':
 
