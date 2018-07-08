@@ -50,7 +50,7 @@ class Optflow_extractor:
         self.y_size = y_size
         # Total amount of stacks with sliding window=num_images-sliding_height+1
 
-    def extract(self, extract_id, model, data_folder):
+    def extract(self, data_folder):
 
         self.get_dirs(data_folder)
 
@@ -160,11 +160,6 @@ if __name__ == '__main__':
             required=True)
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
-            help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
-            required=True)
-    argp.add_argument("-id", dest='id', type=str, nargs=1,
-            help='Usage: -id <identifier_to_this_features>', required=True)
     
     try:
         args = argp.parse_args()
@@ -174,7 +169,7 @@ if __name__ == '__main__':
 
     optflow_extractor = Optflow_extractor(args.classes[0], args.classes[1], 
                 args.input_dim[0], args.input_dim[1])
-    optflow_extractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
+    optflow_extractor.extract(args.data_folder[0])
 
 '''
     todo: criar excecoes para facilitar o uso
