@@ -135,7 +135,7 @@ class Subtitle:
                 time_init = time_init[:-3]
                 time_end = time_end[:-3]
                 file_write.write(time_init.replace(".", ",", 1) + ' --> ' + time_end.replace(".", ",", 1) + '\n')
-                file_write.write("Output: %f\n" % predicted[i])
+                file_write.write("Output: %d\n" % int(predicted[i]))
                 file_write.write("Truth: %d\n" % Y[i])
                 
             inic += all_samples[x][0]
