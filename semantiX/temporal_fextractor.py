@@ -69,10 +69,10 @@ class Fextractor:
 
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
-        features_file = "features_" + extract_id + ".h5"
-        labels_file = "labels_" + extract_id + ".h5"
-        samples_file = "samples_" + extract_id + ".h5"
-        num_file = "num_" + extract_id + ".h5"
+        features_file = "temporal_features_" + extract_id + ".h5"
+        labels_file = "temporal_labels_" + extract_id + ".h5"
+        samples_file = "temporal_samples_" + extract_id + ".h5"
+        num_file = "temporal_num_" + extract_id + ".h5"
 
         features_key = 'features' 
         labels_key = 'labels'
@@ -170,7 +170,6 @@ class Fextractor:
             self.y_images.sort()
             label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
             label_values = np.load(label[0])
-            label_values = np.delete(label_values, 0)
 
             nb_stacks = len(self.x_images)-sliding_height+1
             # Here nb_stacks optical flow stacks will be stored
@@ -333,8 +332,6 @@ class Fextractor:
         self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
                         if os.path.isdir(os.path.join(data_folder, 
                         self.class0, f))]
-
-        
 
         self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
                          if os.path.isdir(os.path.join(data_folder, 
