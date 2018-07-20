@@ -56,10 +56,15 @@ class Train:
         self.num_key = 'num'
 
         self.id = id
-        self.features_file = "features_" + id + ".h5"
-        self.labels_file = "labels_" + id + ".h5"
-        self.samples_file = "samples_" + id + ".h5"
-        self.num_file = "num_" + id + ".h5"
+        self.spatial_features_file = "spatial_features_" + id + ".h5"
+        self.spatial_labels_file = "spatial_labels_" + id + ".h5"
+        self.spatial_samples_file = "spatial_samples_" + id + ".h5"
+        self.spatial_num_file = "spatial_num_" + id + ".h5"
+
+        self.temporal_features_file = "temporal_features_" + id + ".h5"
+        self.temporal_labels_file = "temporal_labels_" + id + ".h5"
+        self.temporal_samples_file = "temporal_samples_" + id + ".h5"
+        self.temporal_num_file = "temporal_num_" + id + ".h5"
 
         self.threshold = threshold
         self.num_features = num_features
@@ -72,134 +77,131 @@ class Train:
 
         self.kf_falls = None
         self.kf_nofalls = None
-        self.falls = None
-        self.no_falls = None
-        self.classifier = None
+        self.falls = []
+        self.no_falls = []
+        self.classifier = []
 
-    def pre_cross_train(self, nsplits):
+    def cross_train(self, streams, nsplits):
 
-        self.pre_train()
-        # Use a 'nsplits' fold cross-validation
         self.kf_falls = KFold(n_splits=nsplits)
         self.kf_nofalls = KFold(n_splits=nsplits)
-        
 
-    def pre_train(self):
-        h5features = h5py.File(self.features_file, 'r')
-        h5labels = h5py.File(self.labels_file, 'r')
-        
-        # all_features will contain all the feature vectors extracted from 
-        # optical flow images
-        self.all_features = h5features[self.features_key]
-        self.all_labels = np.asarray(h5labels[self.labels_key])
-        
-        # Falls are related to 0 and not falls to 1
-        self.falls = np.asarray(np.where(self.all_labels==0)[0])
-        self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
-        self.falls.sort()
-        self.no_falls.sort() 
+        for stream in streams:
+            h5features = h5py.File(stream + '_features_' + id + '.h5', 'r')
+            h5labels = h5py.File(stream + '_labels_' + id + '.h5', 'r')
+            self.all_features = h5features[self.features_key]
+            self.all_labels = h5labels[self.labels_key]
+            self.falls = np.asarray(np.where(self.all_labels==0)[0])
+            self.no_falls = np.asarray(np.where(self.all_labels==1)[0]))
+            self.falls.sort()
+            self.no_falls.sort()
 
-    def cross_train(self, nsplits):
+            sensitivities = []
+            specificities = []
+            fars = []
+            mdrs = []
+            accuracies = []
+           
+            first = 0
 
-        self.pre_cross_train(nsplits)
-        sensitivities = []
-        specificities = []
-        fars = []
-        mdrs = []
-        accuracies = []
-       
-        first = 0
+            # CROSS-VALIDATION: Stratified partition of the dataset into 
+            # train/test sets
+            # todo : split this line
+            for (train_falls, test_falls), (train_nofalls, test_nofalls) in zip(self.kf_falls.split(self.all_features[self.falls, ...]), self.kf_nofalls.split(self.all_features[self.no_falls, ...])):
 
-        # CROSS-VALIDATION: Stratified partition of the dataset into 
-        # train/test sets
-        # todo : split this line
-        for (train_falls, test_falls), (train_nofalls, test_nofalls) in zip(self.kf_falls.split(self.all_features[self.falls, ...]), self.kf_nofalls.split(self.all_features[self.no_falls, ...])):
+                train_falls = np.asarray(train_falls)
+                test_falls = np.asarray(test_falls)
+                train_nofalls = np.asarray(train_nofalls)
+                test_nofalls = np.asarray(test_nofalls)
 
-            train_falls = np.asarray(train_falls)
-            test_falls = np.asarray(test_falls)
-            train_nofalls = np.asarray(train_nofalls)
-            test_nofalls = np.asarray(test_nofalls)
+                # todo: change this X, _y, X2 and _y2 variables name
+                X = np.concatenate((self.all_features[train_falls, ...], 
+                    self.all_features[train_nofalls, ...]))
+                _y = np.concatenate((self.all_labels[train_falls, ...],
+                    self.all_labels[train_nofalls, ...]))
+                X2 = np.concatenate((self.all_features[test_falls, ...],
+                    self.all_features[test_nofalls, ...]))
+                _y2 = np.concatenate((self.all_labels[test_falls, ...], 
+                    self.all_labels[test_nofalls, ...]))   
+                
+                # Balance the number of positive and negative samples so that there
+                # is the same amount of each of them
+                #all0 = np.asarray(np.where(_y==0)[0])
+                #all1 = np.asarray(np.where(_y==1)[0])  
+                #if len(all0) < len(all1):
+                #    all1 = np.random.choice(all1, len(all0), replace=False)
+                #else:
+                #    all0 = np.random.choice(all0, len(all1), replace=False)
+                #allin = np.concatenate((all0.flatten(),all1.flatten()))
+                #allin.sort()
+                #X_t = X[allin,...]
+                #_y_t = _y[allin]
 
-            # todo: change this X, _y, X2 and _y2 variables name
-            X = np.concatenate((self.all_features[train_falls, ...], 
-                self.all_features[train_nofalls, ...]))
-            _y = np.concatenate((self.all_labels[train_falls, ...],
-                self.all_labels[train_nofalls, ...]))
-            X2 = np.concatenate((self.all_features[test_falls, ...],
-                self.all_features[test_nofalls, ...]))
-            _y2 = np.concatenate((self.all_labels[test_falls, ...], 
-                self.all_labels[test_nofalls, ...]))   
-            
-            # Balance the number of positive and negative samples so that there
-            # is the same amount of each of them
-            #all0 = np.asarray(np.where(_y==0)[0])
-            #all1 = np.asarray(np.where(_y==1)[0])  
-            #if len(all0) < len(all1):
-            #    all1 = np.random.choice(all1, len(all0), replace=False)
-            #else:
-            #    all0 = np.random.choice(all0, len(all1), replace=False)
-            #allin = np.concatenate((all0.flatten(),all1.flatten()))
-            #allin.sort()
-            #X_t = X[allin,...]
-            #_y_t = _y[allin]
+                X_t = X
+                _y_t = _y
 
-            X_t = X
-            _y_t = _y
+                self.set_classifier() 
 
-            self.set_classifier() 
+                # ==================== TRAINING ========================     
+                # weighting of each class: only the fall class gets a different
+                # weight
+                class_weight = {0: self.weight_0, 1: 1}
+                # Batch training
+                if self.mini_batch_size == 0:
+                    history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
+                            batch_size=X.shape[0], epochs=self.epochs, 
+                            shuffle='batch', class_weight=class_weight)
+                else:
+                    history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
+                            batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                            shuffle='batch', class_weight=class_weight)
 
-            # ==================== TRAINING ========================     
-            # weighting of each class: only the fall class gets a different
-            # weight
-            class_weight = {0: self.weight_0, 1: 1}
-            # Batch training
-            if self.mini_batch_size == 0:
-                history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
-                        batch_size=X.shape[0], epochs=self.epochs, 
-                        shuffle='batch', class_weight=class_weight)
-            else:
-                history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
-                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                        shuffle='batch', class_weight=class_weight)
+                exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+                self.plot_training_info(exp, ['accuracy', 'loss'], True, 
+                                   history.history)
 
-            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
-            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
-                               history.history)
+                # Store only the first classifier
+                if first == 0:
+                    self.classifier.save(stream + '_classifier_' + self.id + '.h5')
+                    first = 1
 
-            # Store only the first classifier
-            if first == 0:
-                self.classifier.save('classifier_' + self.id + '.h5')
-                first = 1
+                # ==================== EVALUATION ======================== 
+                predicted = self.classifier.predict(np.asarray(X2))
+                self.evaluate(predicted, X2, _y2, sensitivities, 
+                specificities, fars, mdrs, accuracies)
+                
+            print('5-FOLD CROSS-VALIDATION RESULTS ===================')
+            print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
+                                                        np.std(sensitivities)))
+            print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities),
+                                                        np.std(specificities)))
+            print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
+            print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
+            print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
+                                                     np.std(accuracies)))
 
-            # ==================== EVALUATION ======================== 
-            predicted = self.classifier.predict(np.asarray(X2))
-            self.evaluate(predicted, X2, _y2, sensitivities, 
-            specificities, fars, mdrs, accuracies)
-            
-        print('5-FOLD CROSS-VALIDATION RESULTS ===================')
-        print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), 
-                                                    np.std(sensitivities)))
-        print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities),
-                                                    np.std(specificities)))
-        print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
-        print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
-        print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
-                                                 np.std(accuracies)))
+    def train(self, streams):
+    
+        for stream in streams:
+            h5features = h5py.File(stream + '_features_' + id + '.h5', 'r')
+            h5labels = h5py.File(stream + '_labels_' + id + '.h5', 'r')
+            self.all_features = h5features[self.features_key]
+            self.all_labels = h5labels[self.labels_key]
+            self.falls.append = np.asarray(np.where(self.all_labels==0)[0])
+            self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
+            self.falls.sort()
+            self.no_falls.sort()
 
-    def train(self):
-        sensitivities = []
-        specificities = []
-        fars = []
-        mdrs = []
-        accuracies = []
+            sensitivities = []
+            specificities = []
+            fars = []
+            mdrs = []
+            accuracies = []
 
-        self.pre_train()
-
-        # todo: change this X, _y
-        X = np.concatenate((self.all_features[self.falls, ...], 
-            self.all_features[self.no_falls, ...]))
-        _y = np.concatenate((self.all_labels[self.falls, ...],
-            self.all_labels[self.no_falls, ...]))
+            X = np.concatenate((self.all_features[self.falls, ...], 
+                self.all_features[self.no_falls, ...]))
+            _y = np.concatenate((self.all_labels[self.falls, ...],
+                self.all_labels[self.no_falls, ...]))
         
         # Balance the number of positive and negative samples so that there
         # is the same amount of each of them
@@ -234,33 +236,34 @@ class Train:
         #    X_t[smaller] = X[all0[smaller]]
         #    _y_t[smaller] = _y[all0[smaller]]
 
-        X_t = X
-        _y_t = _y
-        self.set_classifier()
+            X_t = X
+            _y_t = _y
 
-        # ==================== TRAINING ========================     
-        # weighting of each class: only the fall class gets a different weight
-        class_weight = {0: self.weight_0, 1: 1}
-        # Batch training
-        if self.mini_batch_size == 0:
-            history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
-                    batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
-                    class_weight=class_weight)
-        else:
-            history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
-                    batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                    shuffle='batch', class_weight=class_weight)
+            self.set_classifier()
 
-        exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
-        self.plot_training_info(exp, ['accuracy', 'loss'], True, 
-                           history.history)
+            # ==================== TRAINING ========================     
+            # weighting of each class: only the fall class gets a different weight
+            class_weight = {0: self.weight_0, 1: 1}
+            # Batch training
+            if self.mini_batch_size == 0:
+                history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
+                        batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
+                        class_weight=class_weight)
+            else:
+                history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
+                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                        shuffle='batch', class_weight=class_weight)
 
-        self.classifier.save('classifier_' + self.id + '.h5')
+            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
+                               history.history)
 
-        # ==================== EVALUATION ========================        
-        predicted = self.classifier.predict(np.asarray(X))
-        self.evaluate(predicted, X, _y, sensitivities, 
-        specificities, fars, mdrs, accuracies)
+            self.classifier.save(stream + '_classifier_' + self.id + '.h5')
+
+            # ==================== EVALUATION ========================        
+            predicted = self.classifier.predict(np.asarray(X))
+            self.evaluate(predicted, X, _y, sensitivities, 
+            specificities, fars, mdrs, accuracies)
 
     def evaluate(self, predicted, X2, _y2, sensitivities, 
     specificities, fars, mdrs, accuracies):
@@ -401,6 +404,9 @@ if __name__ == '__main__':
         todo: verify if all these parameters are really required
     '''
 
+    argp.add_argument("-streams", dest='streams', type=str, nargs='+',
+            help='Usage: -streams spatial temporal (to use 2 streams example)',
+            required=True)
     argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
             help='Usage: -thresh <x> (0<=x<=1)', required=True)
     argp.add_argument("-num_feat", dest='num_feat', type=int, nargs=1,
@@ -435,7 +441,7 @@ if __name__ == '__main__':
             args.batch_norm[0])
 
     if args.actions[0] == 'train':
-        train.train()
+        train.train(args.streams)
     elif args.actions[0] == 'cross-train':
         if args.nsplits == None:
             print("***********************************************************", 
@@ -445,7 +451,7 @@ if __name__ == '__main__':
                 file=sys.stderr)
             
         else:
-            train.cross_train(args.nsplits[0])
+            train.cross_train(args.streams, args.nsplits[0])
     else:
         '''
         Invalid value for actions
