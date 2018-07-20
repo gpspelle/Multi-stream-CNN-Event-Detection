@@ -88,19 +88,31 @@ class Result:
 
     def result(self, streams):
 
+        h5samples = h5py.File(self.samples_file, 'r')
+        all_samples = np.asarray(h5samples[self.samples_key])
+
         # todo: change X and Y variable names
         predicteds = []
+        Truth = []
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
+    
+            if stream == 'spatial':
+
+                for x in range(len(all_samples)):
+             
+
             predicteds.append(predicted)
-            print(len(predicted), len(Y))
-        
-        exit(1)
+            Truth.append(Y)
+
+
+
         for i in range(len(predicted)):
             if predicted[i] < self.threshold:
                 predicted[i] = 0
             else:
                 predicted[i] = 1
+
         # Array of predictions 0/1
         predicted = np.asarray(predicted).astype(int)
         # Compute metrics and print them
