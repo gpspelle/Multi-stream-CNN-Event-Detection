@@ -73,13 +73,14 @@ class Train:
         self.kf_falls = KFold(n_splits=nsplits)
         self.kf_nofalls = KFold(n_splits=nsplits)
 
+
         for stream in streams:
-            h5features = h5py.File(stream + '_features_' + id + '.h5', 'r')
-            h5labels = h5py.File(stream + '_labels_' + id + '.h5', 'r')
+            h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
+            h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
             self.all_features = h5features[self.features_key]
-            self.all_labels = h5labels[self.labels_key]
+            self.all_labels = np.asarray(h5labels[self.labels_key])
             self.falls = np.asarray(np.where(self.all_labels==0)[0])
-            self.no_falls = np.asarray(np.where(self.all_labels==1)[0]))
+            self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
             self.falls.sort()
             self.no_falls.sort()
 
@@ -170,11 +171,11 @@ class Train:
     def train(self, streams):
     
         for stream in streams:
-            h5features = h5py.File(stream + '_features_' + id + '.h5', 'r')
-            h5labels = h5py.File(stream + '_labels_' + id + '.h5', 'r')
+            h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
+            h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
             self.all_features = h5features[self.features_key]
-            self.all_labels = h5labels[self.labels_key]
-            self.falls.append = np.asarray(np.where(self.all_labels==0)[0])
+            self.all_labels = np.asarray(h5labels[self.labels_key])
+            self.falls = np.asarray(np.where(self.all_labels==0)[0])
             self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
             self.falls.sort()
             self.no_falls.sort()
@@ -185,10 +186,8 @@ class Train:
             mdrs = []
             accuracies = []
 
-            X = np.concatenate((self.all_features[self.falls, ...], 
-                self.all_features[self.no_falls, ...]))
-            _y = np.concatenate((self.all_labels[self.falls, ...],
-                self.all_labels[self.no_falls, ...]))
+            X = np.concatenate((self.all_features[self.falls, ...], self.all_features[self.no_falls, ...]))
+            _y = np.concatenate((self.all_labels[self.falls, ...], self.all_labels[self.no_falls, ...]))
         
         # Balance the number of positive and negative samples so that there
         # is the same amount of each of them

@@ -121,9 +121,9 @@ class Fextractor:
         h5num_classes = h5py.File(num_file, 'w')
 
         dataset_features = h5features.create_dataset(features_key, 
-                shape=(self.nb_total_stacks, self.num_features), dtype='float64')
+                shape=(self.nb_total_frames, self.num_features), dtype='float64')
         dataset_labels = h5labels.create_dataset(labels_key, 
-                shape=(self.nb_total_stacks, 1), dtype='float64')  
+                shape=(self.nb_total_frames, 1), dtype='float64')  
         dataset_samples = h5samples.create_dataset(samples_key, 
                 shape=(len(self.classes), 1), 
                 dtype='int32')  
@@ -155,7 +155,9 @@ class Fextractor:
                 # hdf5 file the output
                 for i in range(amount_frames):
                     frame = next(iterr)
-                    predictions[i, ...] = extractor_model.predict(frame)
+                    frame = cv2.imread(frame)
+                    predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
+                    #predictions[i, ...] = extractor_model.predict(frame)
                     truth[i] = label_values[i+fraction*amount_frames]
 
                 dataset_features[cont:cont+amount_frames,:] = predictions
@@ -171,7 +173,9 @@ class Fextractor:
             # hdf5 file the output
             for i in range(amount_frames):
                 frame = next(iterr)
-                predictions[i, ...] = extractor_model.predict(frame)
+                frame = cv2.imread(frame)
+                predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
+                #predictions[i, ...] = extractor_model.predict(frame)
                 # todo: this 100 value is related to initial amount_frames
                 truth[i] = label_values[fraction_frames * 100 + i]
 
