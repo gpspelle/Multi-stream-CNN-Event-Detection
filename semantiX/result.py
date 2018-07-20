@@ -37,7 +37,7 @@ from matplotlib import pyplot as plt
 
 class Result:
 
-    def __init__(self, class0, class1, threshold, id):
+    def __init__(self, threshold, id):
 
         self.features_key = 'features' 
         self.labels_key = 'labels'
@@ -46,24 +46,24 @@ class Result:
 
         self.id = id
 
-        self.features_file = "features_" + id + ".h5"
-        self.labels_file = "labels_" + id + ".h5"
-        self.samples_file = "samples_" + id + ".h5"
-        self.num_file = "num_" + id + ".h5"
+        self.spatial_features_file = "spatial_features_" + id + ".h5"
+        self.spatial_labels_file = "spatial_labels_" + id + ".h5"
+        self.spatial_samples_file = "spatial_samples_" + id + ".h5"
+        self.spatial_num_file = "spatial_num_" + id + ".h5"
 
-        self.class0 = class0
-        self.class1 = class1
+        self.temporal_features_file = "temporal_features_" + id + ".h5"
+        self.temporal_labels_file = "temporal_labels_" + id + ".h5"
+        self.temporal_samples_file = "temporal_samples_" + id + ".h5"
+        self.temporal_num_file = "temporal_num_" + id + ".h5"
+
         self.threshold = threshold
-        self.falls = None
-        self.no_falls = None
-        self.classifier = None
 
-    def pre_result(self):
-        self.classifier = load_model('classifier_' + self.id + '.h5')
+    def pre_result(self, stream):
+        self.classifier = load_model(stream + '_classifier_' + self.id + '.h5')
 
         # Reading information extracted
-        h5features = h5py.File(self.features_file, 'r')
-        h5labels = h5py.File(self.labels_file, 'r')
+        h5features = h5py.File(stream + '_features_' +  self.id + '.h5', 'r')
+        h5labels = h5py.File(stream + '_labels_' +  self.id + '.h5', 'r')
 
         # all_features will contain all the feature vectors extracted from
         # optical flow images
@@ -86,11 +86,16 @@ class Result:
 
         return X, Y, predicted
 
-    def result(self):
+    def result(self, streams):
 
         # todo: change X and Y variable names
-        X, Y, predicted = self.pre_result()
-
+        predicteds = []
+        for stream in streams:
+            X, Y, predicted = self.pre_result(stream)
+            predicteds.append(predicted)
+            print(len(predicted), len(Y))
+        
+        exit(1)
         for i in range(len(predicted)):
             if predicted[i] < self.threshold:
                 predicted[i] = 0
@@ -186,11 +191,11 @@ if __name__ == '__main__':
             file=sys.stderr)
 
     argp = argparse.ArgumentParser(description='Do result  tasks')
+    argp.add_argument("-streams", dest='streams', type=str, nargs='+',
+            help='Usage: -streams spatial temporal (to use 2 streams example)',
+            required=True)
     argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
             help='Usage: -thresh <x> (0<=x<=1)', required=True)
-    argp.add_argument("-class", dest='classes', type=str, nargs='+', 
-            help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
-            required=True)
     argp.add_argument("-id", dest='id', type=str, nargs=1,
         help='Usage: -id <identifier_to_this_features_and_classifier>', 
         required=True)
@@ -201,10 +206,9 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    result = Result(args.classes[0], args.classes[1], args.thresh[0], 
-                args.id[0])
+    result = Result(args.thresh[0], args.id[0])
 
-    result.result()
+    result.result(args.streams)
 
 '''
     todo: criar excecoes para facilitar o uso

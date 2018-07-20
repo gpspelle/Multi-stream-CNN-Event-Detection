@@ -56,15 +56,6 @@ class Train:
         self.num_key = 'num'
 
         self.id = id
-        self.spatial_features_file = "spatial_features_" + id + ".h5"
-        self.spatial_labels_file = "spatial_labels_" + id + ".h5"
-        self.spatial_samples_file = "spatial_samples_" + id + ".h5"
-        self.spatial_num_file = "spatial_num_" + id + ".h5"
-
-        self.temporal_features_file = "temporal_features_" + id + ".h5"
-        self.temporal_labels_file = "temporal_labels_" + id + ".h5"
-        self.temporal_samples_file = "temporal_samples_" + id + ".h5"
-        self.temporal_num_file = "temporal_num_" + id + ".h5"
 
         self.threshold = threshold
         self.num_features = num_features
@@ -75,10 +66,6 @@ class Train:
         self.mini_batch_size = mini_batch_size
         self.batch_norm = batch_norm 
 
-        self.kf_falls = None
-        self.kf_nofalls = None
-        self.falls = []
-        self.no_falls = []
         self.classifier = []
 
     def cross_train(self, streams, nsplits):
