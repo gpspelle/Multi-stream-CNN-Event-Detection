@@ -45,6 +45,7 @@ class Result:
         self.num_key = 'num'
 
         self.id = id
+        self.sliding_height = 10
 
         self.spatial_features_file = "spatial_features_" + id + ".h5"
         self.spatial_labels_file = "spatial_labels_" + id + ".h5"
@@ -88,35 +89,41 @@ class Result:
 
     def result(self, streams):
 
-        h5samples = h5py.File(self.samples_file, 'r')
-        all_samples = np.asarray(h5samples[self.samples_key])
-
         # todo: change X and Y variable names
         predicteds = []
-        Truth = []
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
     
             if stream == 'spatial':
+                Truth = Y
+                h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
+                all_samples = np.asarray(h5samples[self.samples_key])
+                pos = 0
+                index = []
+                for x in all_samples:
+                    index += list(range(pos+x[0]-self.sliding_height, pos+x[0]))
+                    pos+=x[0]
 
-                for x in range(len(all_samples)):
-             
+                Truth = np.delete(Truth, index)
+                predicted = np.delete(predicted, index) 
 
             predicteds.append(predicted)
-            Truth.append(Y)
 
-
+        for j in range(len(predicteds[0])):
+            for i in range(1, len(streams)):
+                predicteds[0][j] += predicteds[i][j] 
+            predicteds[0][j] /= len(streams)
 
         for i in range(len(predicted)):
-            if predicted[i] < self.threshold:
-                predicted[i] = 0
+            if predicteds[0][i] < self.threshold:
+                predicteds[0][i] = 0
             else:
-                predicted[i] = 1
+                predicteds[0][i] = 1
 
         # Array of predictions 0/1
-        predicted = np.asarray(predicted).astype(int)
+        predicted = np.asarray(predicteds[0]).astype(int)
         # Compute metrics and print them
-        cm = confusion_matrix(Y, predicted,labels=[0,1])
+        cm = confusion_matrix(Truth, predicted,labels=[0,1])
         tp = cm[0][0]
         fn = cm[0][1]
         fp = cm[1][0]
@@ -139,11 +146,11 @@ class Result:
         print('F1-measure: {}'.format(f1))
         print('Accuracy: {}'.format(accuracy))
 
-        self.check_videos(Y, predicted)
+        self.check_videos(Truth, predicted, streams[0])
 
-    def check_videos(self, _y2, predicted):
-        h5samples = h5py.File(self.samples_file, 'r')
-        h5num = h5py.File(self.num_file, 'r')
+    def check_videos(self, _y2, predicted, stream):
+        h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
+        h5num = h5py.File(stream + '_num_' + self.id + '.h5', 'r')
 
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
