@@ -31,12 +31,8 @@ class Subtitle:
         self.num_key = 'num'
         self.fid = fid
         self.cid = cid
+        self.sliding_height = 10
 
-        self.features_file = "features_" + fid + ".h5"
-        self.labels_file = "labels_" + fid + ".h5"
-        self.samples_file = "samples_" + fid + ".h5"
-        self.num_file = "num_" + fid + ".h5"
-    
         self.fall_videos = []
         self.not_fall_videos = []
         self.data = data
@@ -44,14 +40,12 @@ class Subtitle:
         self.class1 = class1
         self.threshold = threshold
 
-    def create_subtitle(self):
+    def create_subtitle(self, streams):
 
         # Fill the folders and classes arrays with all the paths to the data
         self.fall_dirs = [f for f in os.listdir(self.data + self.class0) 
                         if os.path.isdir(os.path.join(self.data, 
                         self.class0, f))]
-
-        
 
         self.not_fall_dirs = [f for f in os.listdir(self.data + self.class1) 
                          if os.path.isdir(os.path.join(self.data, 
@@ -71,19 +65,46 @@ class Subtitle:
         self.fall_videos.sort()
         self.not_fall_videos.sort()
 
-        # todo: change X and Y variable names
-        X, Y, predicted = self.pre_result()
+        predicteds = []
+        for stream in streams:
+            X, Y, predicted = self.pre_result(stream)
+    
+            if stream == 'spatial':
+                Truth = Y
+                h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
+                all_samples = np.asarray(h5samples[self.samples_key])
+                pos = 0
+                index = []
+                for x in all_samples:
+                    index += list(range(pos+x[0]-self.sliding_height, pos+x[0]))
+                    pos+=x[0]
+
+                Truth = np.delete(Truth, index)
+                predicted = np.delete(predicted, index) 
+
+            predicteds.append(predicted)
+
+        for j in range(len(predicteds[0])):
+            for i in range(1, len(streams)):
+                predicteds[0][j] += predicteds[i][j] 
+            predicteds[0][j] /= len(streams)
 
         for i in range(len(predicted)):
-            if predicted[i] < self.threshold:
-                predicted[i] = 0
+            if predicteds[0][i] < self.threshold:
+                predicteds[0][i] = 0
             else:
-                predicted[i] = 1
+                predicteds[0][i] = 1
+
         # Array of predictions 0/1
-        predicted = np.asarray(predicted).astype(int)
-       
-        h5samples = h5py.File(self.samples_file, 'r')
-        h5num = h5py.File(self.num_file, 'r')
+        predicted = np.asarray(predicteds[0]).astype(int)
+
+        if 'temporal' not in streams:
+            print("Por enquanto temporal tem de ser um dos streams", 
+                  file=sys.stderr)
+            exit(1)
+
+        h5samples = h5py.File('temporal_samples_' + self.fid + '.h5', 'r')
+        h5num = h5py.File('temporal_num_' + self.fid + '.h5', 'r')
 
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
@@ -112,9 +133,6 @@ class Subtitle:
             cap = cv2.VideoCapture(list_video[cnt]) 
             fps = cap.get(cv2.CAP_PROP_FPS) 
 
-            total_frames = all_samples[x][0] + sliding_height - 1
-
-            video_duration = total_frames / fps
             subtitle_cnt = 0
 
             file_write = open(self.data + cl + '/' + save_dir[cnt] + '/' + 
@@ -140,27 +158,18 @@ class Subtitle:
                 
             inic += all_samples[x][0]
 
-    def pre_result(self):
-        self.classifier = load_model('classifier_' + self.cid + '.h5')
+    def pre_result(self, stream):
+        self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')
 
         # Reading information extracted
-        h5features = h5py.File(self.features_file, 'r')
-        h5labels = h5py.File(self.labels_file, 'r')
+        h5features = h5py.File(stream + '_features_' +  self.fid + '.h5', 'r')
+        h5labels = h5py.File(stream + '_labels_' +  self.fid + '.h5', 'r')
 
         # all_features will contain all the feature vectors extracted from
         # optical flow images
         self.all_features = h5features[self.features_key]
         self.all_labels = np.asarray(h5labels[self.labels_key])
 
-        #self.falls = np.asarray(np.where(self.all_labels==0)[0])
-        #self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
-   
-        # todo: change X and Y variable names
-        #X = np.concatenate((self.all_features[self.falls, ...], 
-        #    self.all_features[self.no_falls, ...]))
-        #Y = np.concatenate((self.all_labels[self.falls, ...], 
-        #    self.all_labels[self.no_falls, ...]))
-       
         predicted = self.classifier.predict(np.asarray(self.all_features))
 
         return self.all_features, self.all_labels, predicted
@@ -178,6 +187,9 @@ if __name__ == '__main__':
             file=sys.stderr)
 
     argp = argparse.ArgumentParser(description='Do subtitle tasks')
+    argp.add_argument("-streams", dest='streams', type=str, nargs='+',
+            help='Usage: -streams spatial temporal (to use 2 streams example)',
+            required=True)
     argp.add_argument("-data", dest='data', type=str, nargs=1, 
             help='Usage: -data <path_to_your_data_folder>', required=True)
     argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
@@ -198,10 +210,10 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    subt = Subtitle(args.data[0], args.classes[0], args.classes[1], args.thresh[0], 
-                args.fid[0], args.cid[0])
+    subt = Subtitle(args.data[0], args.classes[0], args.classes[1], 
+                    args.thresh[0], args.fid[0], args.cid[0])
 
-    subt.create_subtitle()
+    subt.create_subtitle(args.streams)
 
 '''
     todo: criar excecoes para facilitar o uso

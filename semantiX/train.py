@@ -112,22 +112,6 @@ class Train:
                 _y2 = np.concatenate((self.all_labels[test_falls, ...], 
                     self.all_labels[test_nofalls, ...]))   
                 
-                # Balance the number of positive and negative samples so that there
-                # is the same amount of each of them
-                #all0 = np.asarray(np.where(_y==0)[0])
-                #all1 = np.asarray(np.where(_y==1)[0])  
-                #if len(all0) < len(all1):
-                #    all1 = np.random.choice(all1, len(all0), replace=False)
-                #else:
-                #    all0 = np.random.choice(all0, len(all1), replace=False)
-                #allin = np.concatenate((all0.flatten(),all1.flatten()))
-                #allin.sort()
-                #X_t = X[allin,...]
-                #_y_t = _y[allin]
-
-                X_t = X
-                _y_t = _y
-
                 self.set_classifier() 
 
                 # ==================== TRAINING ========================     
@@ -136,11 +120,11 @@ class Train:
                 class_weight = {0: self.weight_0, 1: 1}
                 # Batch training
                 if self.mini_batch_size == 0:
-                    history = self.classifier.fit(X_t,_y_t, validation_data=(X2,_y2), 
+                    history = self.classifier.fit(X,_y, validation_data=(X2,_y2), 
                             batch_size=X.shape[0], epochs=self.epochs, 
                             shuffle='batch', class_weight=class_weight)
                 else:
-                    history = self.classifier.fit(X_t, _y_t, validation_data=(X2,_y2), 
+                    history = self.classifier.fit(X, _y, validation_data=(X2,_y2), 
                             batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                             shuffle='batch', class_weight=class_weight)
 
@@ -175,10 +159,6 @@ class Train:
             h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
             self.all_features = h5features[self.features_key]
             self.all_labels = np.asarray(h5labels[self.labels_key])
-            self.falls = np.asarray(np.where(self.all_labels==0)[0])
-            self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
-            self.falls.sort()
-            self.no_falls.sort()
 
             sensitivities = []
             specificities = []
@@ -186,44 +166,8 @@ class Train:
             mdrs = []
             accuracies = []
 
-            X = np.concatenate((self.all_features[self.falls, ...], self.all_features[self.no_falls, ...]))
-            _y = np.concatenate((self.all_labels[self.falls, ...], self.all_labels[self.no_falls, ...]))
-        
-        # Balance the number of positive and negative samples so that there
-        # is the same amount of each of them
-        # todo: check if it's really necessary
-        #all0 = np.asarray(np.where(_y==0)[0])
-        #all1 = np.asarray(np.where(_y==1)[0])  
-        #if len(all0) < len(all1):
-        #    all1 = np.random.choice(all1, len(all0), replace=False)
-        #else:
-        #    all0 = np.random.choice(all0, len(all1), replace=False)
-        #allin = np.concatenate((all0.flatten(),all1.flatten()))
-        #allin.sort()
-        #X_t = X[allin,...]
-        #_y_t = _y[allin]
-
-        #smaller = min(len(all0), len(all1))
-        #X_t = np.zeros((smaller, self.num_features), dtype=int)
-        #_y_t= np.zeros(smaller, dtype=int)
-
-        #is_odd = False
-        #if smaller % 2 != 0:
-        #    is_odd = True
-        #    smaller -= 1
-            
-        #for t in range(0, smaller, 2):
-        #    X_t[t] = X[all0[t]]
-        #    X_t[t+1] = X[all1[t+1]]
-        #    _y_t[t] = _y[all0[t]]
-        #    _y_t[t+1] = _y[all1[t+1]]
-
-        #if is_odd:
-        #    X_t[smaller] = X[all0[smaller]]
-        #    _y_t[smaller] = _y[all0[smaller]]
-
-            X_t = X
-            _y_t = _y
+            X_t = self.all_features
+            _y_t = self.all_labels
 
             self.set_classifier()
 
@@ -233,7 +177,7 @@ class Train:
             # Batch training
             if self.mini_batch_size == 0:
                 history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
-                        batch_size=X.shape[0], epochs=self.epochs, shuffle='batch',
+                        batch_size=X_t.shape[0], epochs=self.epochs, shuffle='batch',
                         class_weight=class_weight)
             else:
                 history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
@@ -247,8 +191,8 @@ class Train:
             self.classifier.save(stream + '_classifier_' + self.id + '.h5')
 
             # ==================== EVALUATION ========================        
-            predicted = self.classifier.predict(np.asarray(X))
-            self.evaluate(predicted, X, _y, sensitivities, 
+            predicted = self.classifier.predict(np.asarray(X_t))
+            self.evaluate(predicted, X_t, _y_t, sensitivities, 
             specificities, fars, mdrs, accuracies)
 
     def evaluate(self, predicted, X2, _y2, sensitivities, 

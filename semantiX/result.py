@@ -47,16 +47,6 @@ class Result:
         self.id = id
         self.sliding_height = 10
 
-        self.spatial_features_file = "spatial_features_" + id + ".h5"
-        self.spatial_labels_file = "spatial_labels_" + id + ".h5"
-        self.spatial_samples_file = "spatial_samples_" + id + ".h5"
-        self.spatial_num_file = "spatial_num_" + id + ".h5"
-
-        self.temporal_features_file = "temporal_features_" + id + ".h5"
-        self.temporal_labels_file = "temporal_labels_" + id + ".h5"
-        self.temporal_samples_file = "temporal_samples_" + id + ".h5"
-        self.temporal_num_file = "temporal_num_" + id + ".h5"
-
         self.threshold = threshold
 
     def pre_result(self, stream):
@@ -71,21 +61,9 @@ class Result:
         self.all_features = h5features[self.features_key]
         self.all_labels = np.asarray(h5labels[self.labels_key])
 
-        self.falls = np.asarray(np.where(self.all_labels==0)[0])
-        self.no_falls = np.asarray(np.where(self.all_labels==1)[0])
-   
-        self.falls.sort()
-        self.no_falls.sort()
+        predicted = self.classifier.predict(np.asarray(self.all_features))
 
-        # todo: change X and Y variable names
-        X = np.concatenate((self.all_features[self.falls, ...], 
-            self.all_features[self.no_falls, ...]))
-        Y = np.concatenate((self.all_labels[self.falls, ...], 
-            self.all_labels[self.no_falls, ...]))
-       
-        predicted = self.classifier.predict(np.asarray(X))
-
-        return X, Y, predicted
+        return self.all_features, self.all_labels, predicted
 
     def result(self, streams):
 
