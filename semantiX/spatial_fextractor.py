@@ -58,11 +58,6 @@ class Fextractor:
 
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
-        features_file = "spatial_features_" + extract_id + ".h5"
-        labels_file = "spatial_labels_" + extract_id + ".h5"
-        samples_file = "spatial_samples_" + extract_id + ".h5"
-        num_file = "spatial_num_" + extract_id + ".h5"
-
         features_key = 'features' 
         labels_key = 'labels'
         samples_key = 'samples'
@@ -157,7 +152,6 @@ class Fextractor:
                     frame = next(iterr)
                     frame = cv2.imread(frame)
                     predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
-                    #predictions[i, ...] = extractor_model.predict(frame)
                     truth[i] = label_values[i+fraction*amount_frames]
 
                 dataset_features[cont:cont+amount_frames,:] = predictions
@@ -175,7 +169,6 @@ class Fextractor:
                 frame = next(iterr)
                 frame = cv2.imread(frame)
                 predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
-                #predictions[i, ...] = extractor_model.predict(frame)
                 # todo: this 100 value is related to initial amount_frames
                 truth[i] = label_values[fraction_frames * 100 + i]
 

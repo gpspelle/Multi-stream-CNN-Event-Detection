@@ -69,11 +69,6 @@ class Fextractor:
 
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
-        features_file = "temporal_features_" + extract_id + ".h5"
-        labels_file = "temporal_labels_" + extract_id + ".h5"
-        samples_file = "temporal_samples_" + extract_id + ".h5"
-        num_file = "temporal_num_" + extract_id + ".h5"
-
         features_key = 'features' 
         labels_key = 'labels'
         samples_key = 'samples'
