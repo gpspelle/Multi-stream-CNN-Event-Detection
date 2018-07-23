@@ -37,7 +37,7 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, class0, class1, num_features, x_size, y_size):
+    def __init__(self, class0, class1, num_features, x_size, y_size, id):
         self.class0 = class0
         self.class1 = class1
         self.num_features = num_features
@@ -50,14 +50,20 @@ class Fextractor:
         self.frames = []
         self.x_size = x_size
         self.y_size = y_size
+        self.id = id
         self.nb_total_frames = 0
 
-    def extract(self, extract_id, model, data_folder):
+    def extract(self, model, data_folder):
 
         self.get_dirs(data_folder)
 
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
+        features_file = 'spatial_features_' + self.id  + '.h5'
+        labels_file = 'spatial_labels_' + self.id  + '.h5'
+        samples_file = 'spatial_samples_' + self.id  + '.h5'
+        num_file = 'spatial_num_' + self.id  + '.h5'
+
         features_key = 'features' 
         labels_key = 'labels'
         samples_key = 'samples'
@@ -238,8 +244,9 @@ if __name__ == '__main__':
         exit(1)
 
     fextractor = Fextractor(args.classes[0], args.classes[1], 
-                args.num_features[0], args.input_dim[0], args.input_dim[1])
-    fextractor.extract(args.id[0], args.cnn_arch[0], args.data_folder[0])
+                args.num_features[0], args.input_dim[0], args.input_dim[1],
+                args.id[0])
+    fextractor.extract(args.cnn_arch[0], args.data_folder[0])
 
 '''
     todo: criar excecoes para facilitar o uso
