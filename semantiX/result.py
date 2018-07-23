@@ -37,24 +37,25 @@ from matplotlib import pyplot as plt
 
 class Result:
 
-    def __init__(self, threshold, id):
+    def __init__(self, threshold, fid, cid):
 
         self.features_key = 'features' 
         self.labels_key = 'labels'
         self.samples_key = 'samples'
         self.num_key = 'num'
 
-        self.id = id
+        self.fid = fid
+        self.cid = cid
         self.sliding_height = 10
 
         self.threshold = threshold
 
     def pre_result(self, stream):
-        self.classifier = load_model(stream + '_classifier_' + self.id + '.h5')
+        self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')
 
         # Reading information extracted
-        h5features = h5py.File(stream + '_features_' +  self.id + '.h5', 'r')
-        h5labels = h5py.File(stream + '_labels_' +  self.id + '.h5', 'r')
+        h5features = h5py.File(stream + '_features_' +  self.fid + '.h5', 'r')
+        h5labels = h5py.File(stream + '_labels_' +  self.fid + '.h5', 'r')
 
         # all_features will contain all the feature vectors extracted from
         # optical flow images
@@ -74,7 +75,7 @@ class Result:
     
             if stream == 'spatial':
                 Truth = Y
-                h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
+                h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
                 all_samples = np.asarray(h5samples[self.samples_key])
                 pos = 0
                 index = []
@@ -127,8 +128,8 @@ class Result:
         self.check_videos(Truth, predicted, streams[0])
 
     def check_videos(self, _y2, predicted, stream):
-        h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
-        h5num = h5py.File(stream + '_num_' + self.id + '.h5', 'r')
+        h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
+        h5num = h5py.File(stream + '_num_' + self.fid + '.h5', 'r')
 
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
@@ -193,8 +194,11 @@ if __name__ == '__main__':
             required=True)
     argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
             help='Usage: -thresh <x> (0<=x<=1)', required=True)
-    argp.add_argument("-id", dest='id', type=str, nargs=1,
-        help='Usage: -id <identifier_to_this_features_and_classifier>', 
+    argp.add_argument("-fid", dest='fid', type=str, nargs=1,
+        help='Usage: -id <identifier_to_features>', 
+        required=True)
+    argp.add_argument("-cid", dest='cid', type=str, nargs=1,
+        help='Usage: -id <identifier_to_classifier>', 
         required=True)
 
     try:
@@ -203,7 +207,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    result = Result(args.thresh[0], args.id[0])
+    result = Result(args.thresh[0], args.fid[0], args.cid[0])
 
     result.result(args.streams)
 
