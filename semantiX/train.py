@@ -155,6 +155,8 @@ class Train:
     def train(self, streams):
     
         for stream in streams:
+            self.set_classifier()
+
             h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
             h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
             self.all_features = h5features[self.features_key]
@@ -169,8 +171,6 @@ class Train:
             X_t = self.all_features
             _y_t = self.all_labels
 
-            self.set_classifier()
-
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different weight
             class_weight = {0: self.weight_0, 1: 1}
@@ -180,7 +180,7 @@ class Train:
                         batch_size=X_t.shape[0], epochs=self.epochs, shuffle='batch',
                         class_weight=class_weight)
             else:
-                history = self.classifier.fit(X_t, _y_t, validation_split=0.15, 
+                history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
                         batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
 
