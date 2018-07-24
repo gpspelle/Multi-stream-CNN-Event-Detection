@@ -56,7 +56,7 @@ class Subtitle:
 
     def create_subtitle(self, streams):
 
-        self.get_dirs(data_folder)
+        self.get_dirs(self.data)
 
         predicteds = []
         for stream in streams:
@@ -102,58 +102,42 @@ class Subtitle:
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
 
-        list_video = []
-        cnt = 0
-        sliding_height = 10
-        inic = 0
-
-        print(all_num)
-        print(len(all_num[0]))
-        exit(1)
-        for x in range(len(all_samples)):
-
-            if all_samples[x][0] == 0:
-                continue
-
-            if x == 0:
-                list_video = self.classes_videos[][:]
-                save_dir = self.classes_dirs[][:] 
-                cl = self.classes[]
-                # save subtitle on Falls
-            elif x == all_num[0][0]:
-                cnt = 0
-                list_video = self.not_fall_videos[:]
-                save_dir = self.not_fall_dirs[:]
-                cl = self.class1
-                # save subtitle on NotFalls
-
-            cap = cv2.VideoCapture(list_video[cnt]) 
-            fps = cap.get(cv2.CAP_PROP_FPS) 
-
-            subtitle_cnt = 0
-
-            file_write = open(self.data + cl + '/' + save_dir[cnt] + '/' + 
-                        save_dir[cnt] + '.srt' , 'w')  
-            cnt += 1
-            time = 0.0
-            for i in range(inic, inic + all_samples[x][0]):
+        stack_c = 0
+        class_c = 0
+        all_num = [y for x in all_num for y in x]
+        for amount_videos in all_num:
+            list_video = self.classes_videos[class_c][:]
+            save_dir = self.classes_dirs[class_c][:]
+            cl = self.classes[class_c]
+            for num_video in range(amount_videos):
                 
-                subtitle_cnt += 1
-                if i >= len(predicted):
-                   break 
+                cap = cv2.VideoCapture(list_video[num_video]) 
+                fps = cap.get(cv2.CAP_PROP_FPS) 
+                subtitle_c = 0
+                time = 0.0
+                file_write = open(self.data + cl + '/' + save_dir[num_video] +
+                        '/' + save_dir[num_video] + '.srt' , 'w')  
 
-                time += (1 / fps + 0.001)
-                file_write.write("\n")
-                file_write.write("%d\n" % subtitle_cnt)
-                time_init = str(datetime.timedelta(seconds=time))
-                time_end = str(datetime.timedelta(seconds=time + 1/fps + 0.001))
-                time_init = time_init[:-3]
-                time_end = time_end[:-3]
-                file_write.write(time_init.replace(".", ",", 1) + ' --> ' + time_end.replace(".", ",", 1) + '\n')
-                file_write.write("Output: %d\n" % int(predicted[i]))
-                file_write.write("Truth: %d\n" % Truth[i])
-                
-            inic += all_samples[x][0]
+                for num_stack in range(stack_c, stack_c + all_samples[num_video][0]):
+                    subtitle_c += 1
+
+                    if num_stack >= len(predicted):
+                        break
+
+                    time += (1 / fps + 0.001)
+                    file_write.write("\n")
+                    file_write.write("%d\n" % subtitle_c)
+                    time_init = str(datetime.timedelta(seconds=time))
+                    time_end = str(datetime.timedelta(seconds=time + 1/fps + 0.001))
+                    time_init = time_init[:-3]
+                    time_end = time_end[:-3]
+                    file_write.write(time_init.replace(".", ",", 1) + ' --> ' + time_end.replace(".", ",", 1) + '\n')
+                    file_write.write("Output: %d\n" % int(predicted[num_stack]))
+                    file_write.write("Truth: %d\n" % Truth[num_stack])
+
+                stack_c += all_samples[num_video][0]
+
+            class_c += 1
 
     def pre_result(self, stream):
         self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')
@@ -207,8 +191,8 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    subt = Subtitle(args.data[0], args.classes[0], args.classes[1], 
-                    args.thresh[0], args.fid[0], args.cid[0])
+    subt = Subtitle(args.data[0], args.classes, args.thresh[0], args.fid[0], 
+                    args.cid[0])
 
     subt.create_subtitle(args.streams)
 
