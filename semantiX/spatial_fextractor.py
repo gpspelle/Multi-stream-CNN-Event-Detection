@@ -124,8 +124,8 @@ class Fextractor:
         dataset_num = h5num_classes.create_dataset(num_key, shape=(len(self.classes), 1), 
                 dtype='int32')  
         
-        for c in range(len(classes)):
-            data_set_num[c] = len(self.classes_dirs[c])
+        for c in range(len(self.classes)):
+            dataset_num[c] = len(self.classes_dirs[c])
 
         cont = 0
         number = 0

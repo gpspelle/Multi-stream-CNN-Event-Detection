@@ -125,11 +125,11 @@ class Fextractor:
                 self.frames = glob.glob(data_folder + self.classes[c] + '/' + 
                               dir + '/flow_x*.jpg')
 
-                if int(len(self.frames)) >= self.sliding_height:
+                if int(len(self.frames)) >= sliding_height:
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
                     self.class_value.append(self.classes[c])
-                    self.nb_total_frames += len(self.frames)
+                    self.nb_total_stacks += len(self.frames)
 
 
         # File to store the extracted features and datasets to store them
@@ -146,11 +146,11 @@ class Fextractor:
         dataset_samples = h5samples.create_dataset(samples_key, 
                 shape=(len(self.classes), 1), 
                 dtype='int32')  
-        dataset_num = h5num_classes.create_dataset(num_key, shape=(2, 1), 
+        dataset_num = h5num_classes.create_dataset(num_key, shape=(len(self.classes), 1), 
                 dtype='int32')  
         
-        dataset_num[0] = len(self.fall_dirs)
-        dataset_num[1] = len(self.not_fall_dirs)
+        for c in range(len(self.classes)):
+            dataset_num[c] = len(self.classes_dirs[c])
 
         cont = 0
         number = 0
