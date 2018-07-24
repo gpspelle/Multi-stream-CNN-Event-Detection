@@ -23,7 +23,7 @@ from keras.models import load_model
 
 class Subtitle:
 
-    def __init__(self, data, class0, class1, threshold, fid, cid):
+    def __init__(self, data, classes, threshold, fid, cid):
        
         self.features_key = 'features' 
         self.labels_key = 'labels'
@@ -33,37 +33,30 @@ class Subtitle:
         self.cid = cid
         self.sliding_height = 10
 
-        self.fall_videos = []
-        self.not_fall_videos = []
+        self.classes = classes
+        self.classes_videos = []
+        self.classes_dirs = []
         self.data = data
-        self.class0 = class0
-        self.class1 = class1
+        self.classes = classes 
         self.threshold = threshold
+
+    def get_dirs(self, data_folder):
+
+        for c in self.classes:
+            self.classes_dirs.append([f for f in os.listdir(data_folder + c) 
+                        if os.path.isdir(os.path.join(data_folder, c, f))])
+            self.classes_dirs[-1].sort()
+
+            self.classes_videos.append([])
+            for f in self.classes_dirs[-1]:
+                self.classes_videos[-1].append(data_folder + c+ '/' + f +
+                                   '/' + f + '.mp4')
+
+            self.classes_videos[-1].sort()
 
     def create_subtitle(self, streams):
 
-        # Fill the folders and classes arrays with all the paths to the data
-        self.fall_dirs = [f for f in os.listdir(self.data + self.class0) 
-                        if os.path.isdir(os.path.join(self.data, 
-                        self.class0, f))]
-
-        self.not_fall_dirs = [f for f in os.listdir(self.data + self.class1) 
-                         if os.path.isdir(os.path.join(self.data, 
-                         self.class1, f))]
-
-        self.fall_dirs.sort()
-        self.not_fall_dirs.sort()
-
-        for f in self.fall_dirs:
-            self.fall_videos.append(self.data + self.class0 + '/' + f +
-                                '/' + f + '.mp4')
-
-        for f in self.not_fall_dirs:
-            self.not_fall_videos.append(self.data + self.class1 + '/' +
-                                f + '/' + f + '.mp4')
-
-        self.fall_videos.sort()
-        self.not_fall_videos.sort()
+        self.get_dirs(data_folder)
 
         predicteds = []
         for stream in streams:
@@ -113,15 +106,19 @@ class Subtitle:
         cnt = 0
         sliding_height = 10
         inic = 0
+
+        print(all_num)
+        print(len(all_num[0]))
+        exit(1)
         for x in range(len(all_samples)):
 
             if all_samples[x][0] == 0:
                 continue
 
             if x == 0:
-                list_video = self.fall_videos[:]
-                save_dir = self.fall_dirs[:] 
-                cl = self.class0
+                list_video = self.classes_videos[][:]
+                save_dir = self.classes_dirs[][:] 
+                cl = self.classes[]
                 # save subtitle on Falls
             elif x == all_num[0][0]:
                 cnt = 0
