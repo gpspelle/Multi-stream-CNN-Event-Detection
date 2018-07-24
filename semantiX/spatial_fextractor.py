@@ -37,16 +37,19 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, class0, class1, num_features, x_size, y_size, id):
-        self.class0 = class0
-        self.class1 = class1
+    def __init__(self, classes, num_features, x_size, y_size, id):
+
+        self.classes = classes
+
         self.num_features = num_features
         self.folders = []
-        self.fall_dirs = []
-        self.not_fall_dirs = []
-        self.fall_videos = []
-        self.not_fall_videos = []
-        self.classes = []
+
+        self.classes_dirs = []
+        self.classes_videos = []
+
+        self.sliding_height = 10
+        self.class_value = []
+
         self.frames = []
         self.x_size = x_size
         self.y_size = y_size
@@ -93,26 +96,16 @@ class Fextractor:
 
         dirs = []
 
-        for fall_dir in self.fall_dirs:
-            self.frames = glob.glob(data_folder + self.class0 + '/' + 
-                                 fall_dir + '/frame_*.jpg')
-            if int(len(self.frames)) >= 10:
-                self.folders.append(data_folder + self.class0 + '/' + fall_dir)
-                dirs.append(fall_dir)
-                self.classes.append(self.class0)
+        for c in range(len(self.classes)):
+            for dir in self.classes_dirs[c]: 
+                self.frames = glob.glob(data_folder + self.classes[c] + '/' + 
+                              dir + '/frame_*.jpg')
 
-        for not_fall_dir in self.not_fall_dirs:
-            self.frames = glob.glob(data_folder + self.class1 + '/' +
-                                 not_fall_dir + '/frame_*.jpg')
-            if int(len(self.frames)) >= 10:
-                self.folders.append(data_folder + self.class1 + '/' + 
-                        not_fall_dir)
-                dirs.append(not_fall_dir)
-                self.classes.append(self.class1)
-
-        for folder in self.folders:
-            self.frames = glob.glob(folder + '/frame_*.jpg')
-            self.nb_total_frames += len(self.frames)
+                if int(len(self.frames)) >= self.sliding_height:
+                    self.folders.append(data_folder + self.classes[c] + '/' + dir)
+                    dirs.append(dir)
+                    self.class_value.append(self.classes[c])
+                    self.nb_total_frames += len(self.frames)
 
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
@@ -126,18 +119,18 @@ class Fextractor:
         dataset_labels = h5labels.create_dataset(labels_key, 
                 shape=(self.nb_total_frames, 1), dtype='float64')  
         dataset_samples = h5samples.create_dataset(samples_key, 
-                shape=(len(self.classes), 1), 
+                shape=(len(self.class_value), 1), 
                 dtype='int32')  
-        dataset_num = h5num_classes.create_dataset(num_key, shape=(2, 1), 
+        dataset_num = h5num_classes.create_dataset(num_key, shape=(len(self.classes), 1), 
                 dtype='int32')  
         
-        dataset_num[0] = len(self.fall_dirs)
-        dataset_num[1] = len(self.not_fall_dirs)
+        for c in range(len(classes)):
+            data_set_num[c] = len(self.classes_dirs[c])
 
         cont = 0
         number = 0
         
-        for folder, dir, classe in zip(self.folders, dirs, self.classes):
+        for folder, dir, classe in zip(self.folders, dirs, self.class_value):
             self.frames = glob.glob(folder + '/frame_*.jpg')
             self.frames.sort()
             label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
@@ -191,28 +184,17 @@ class Fextractor:
 
     def get_dirs(self, data_folder):
 
-        # Fill the folders and classes arrays with all the paths to the data
-        self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
-                        if os.path.isdir(os.path.join(data_folder, 
-                        self.class0, f))]
+        for c in self.classes:
+            self.classes_dirs.append([f for f in os.listdir(data_folder + c) 
+                        if os.path.isdir(os.path.join(data_folder, c, f))])
+            self.classes_dirs[-1].sort()
 
-        self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
-                         if os.path.isdir(os.path.join(data_folder, 
-                         self.class1, f))]
+            self.classes_videos.append([])
+            for f in self.classes_dirs[-1]:
+                self.classes_videos[-1].append(data_folder + c+ '/' + f +
+                                   '/' + f + '.mp4')
 
-        self.fall_dirs.sort()
-        self.not_fall_dirs.sort()
-
-        for f in self.fall_dirs:
-            self.fall_videos.append(data_folder + self.class0 + '/' + f +
-                                '/' + f + '.mp4')
-
-        for f in self.not_fall_dirs:
-            self.not_fall_videos.append(data_folder + self.class1 + '/' +
-                                f + '/' + f + '.mp4')
-
-        self.fall_videos.sort()
-        self.not_fall_videos.sort()
+            self.classes_videos[-1].sort()
 
         
 if __name__ == '__main__':
@@ -243,9 +225,8 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    fextractor = Fextractor(args.classes[0], args.classes[1], 
-                args.num_features[0], args.input_dim[0], args.input_dim[1],
-                args.id[0])
+    fextractor = Fextractor(args.classes, args.num_features[0], 
+                args.input_dim[0], args.input_dim[1], args.id[0])
     fextractor.extract(args.cnn_arch[0], args.data_folder[0])
 
 '''

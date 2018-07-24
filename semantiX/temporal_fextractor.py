@@ -38,16 +38,16 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, class0, class1, num_features, x_size, y_size, id):
-        self.class0 = class0
-        self.class1 = class1
+    def __init__(self, classes, num_features, x_size, y_size, id):
+
         self.num_features = num_features
         self.folders = []
-        self.fall_dirs = []
-        self.not_fall_dirs = []
-        self.fall_videos = []
-        self.not_fall_videos = []
-        self.classes = []
+        
+        self.classes = classes
+        self.classes_dirs = []
+        self.classes_videos = []
+
+        self.class_value = []
         self.x_images = []
         self.y_images = []
         self.x_size = x_size
@@ -120,26 +120,17 @@ class Fextractor:
 
         dirs = []
 
-        for fall_dir in self.fall_dirs:
-            self.x_images = glob.glob(data_folder + self.class0 + '/' + 
-                                 fall_dir + '/flow_x*.jpg')
-            if int(len(self.x_images)) >= 10:
-                self.folders.append(data_folder + self.class0 + '/' + fall_dir)
-                dirs.append(fall_dir)
-                self.classes.append(self.class0)
+        for c in range(len(self.classes)):
+            for dir in self.classes_dirs[c]: 
+                self.frames = glob.glob(data_folder + self.classes[c] + '/' + 
+                              dir + '/flow_x*.jpg')
 
-        for not_fall_dir in self.not_fall_dirs:
-            self.x_images = glob.glob(data_folder + self.class1 + '/' +
-                                 not_fall_dir + '/flow_x*.jpg')
-            if int(len(self.x_images)) >= 10:
-                self.folders.append(data_folder + self.class1 + '/' + 
-                        not_fall_dir)
-                dirs.append(not_fall_dir)
-                self.classes.append(self.class1)
+                if int(len(self.frames)) >= self.sliding_height:
+                    self.folders.append(data_folder + self.classes[c] + '/' + dir)
+                    dirs.append(dir)
+                    self.class_value.append(self.classes[c])
+                    self.nb_total_frames += len(self.frames)
 
-        for folder in self.folders:
-            self.x_images = glob.glob(folder + '/flow_x*.jpg')
-            self.nb_total_stacks += len(self.x_images)-sliding_height+1
 
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
@@ -164,7 +155,7 @@ class Fextractor:
         cont = 0
         number = 0
         
-        for folder, dir, classe in zip(self.folders, dirs, self.classes):
+        for folder, dir, classe in zip(self.folders, dirs, self.class_value):
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
             self.x_images.sort()
             self.y_images = glob.glob(folder + '/flow_y*.jpg')
@@ -271,88 +262,20 @@ class Fextractor:
         else:
             return 0
 
-    def extract_optflow(self, data_folder, videos, dirs, class_):
-
-        for (video, dir) in zip(videos, dirs): 
-            counter = 1
-            cap = cv2.VideoCapture(video)
-            success, frame1 = cap.read()
-            try:
-                prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
-            except cv2.error as e:
-                print("Inside every folder in dataset it's expected a valid" +
-                "(non-empty) video with name equal to the folder + .mp4." +
-                "In your case, inside %s it's expected a %s video" 
-                % (data_folder + class_ + dir, video)
-                , file=sys.stderr)
-                exit(1)
-            hsv = np.zeros_like(frame1)
-            hsv[...,1] = 255
-            path = data_folder + class_ +  '/' + dir
-            while True:
-                success, frame2 = cap.read()
-                if success == False:
-                    break
-                next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
-                flow = cv2.calcOpticalFlowFarneback(prvs, next, None, 
-                        0.702, 5, 10, 2, 7, 1.5, 0)
-                mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-                # todo: (ALERT) because of a unknown reason cartToPolar is 
-                # returning -inf for some mag positions and than normalize
-                # gets all 0...
-                for i in range(len(mag)):
-                    for j in range(len(mag[i])):
-                        if math.isnan(mag[i][j]) or math.isinf(mag[i][j]):
-                            mag[i][j] = 0
-                hsv[...,0] = ang*180/np.pi/2
-                hsv[...,2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-                bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-                '''
-                    todo: this isn't fine and only will work for urfd data set
-                '''
-                if self.x_size != 224 or self.y_size != 224:
-                    print("-input_dim 224 224 are obrigatory so far. sorry.",
-                           file=sys.stderr)
-                    exit(1)
-
-                cv2.imwrite(path + '/' + 'flow_x_' + str(counter).zfill(5) + 
-                        '.jpg', hsv[..., 0])
-                cv2.imwrite(path + '/' + 'flow_y_' + str(counter).zfill(5) +
-                        '.jpg', hsv[..., 2])
-                cv2.imwrite(path + '/' + 'flow_z_' + str(counter).zfill(5) + 
-                        '.jpg', bgr)
-                counter += 1
-                prvs = next
-            cap.release()
-            cv2.destroyAllWindows()
-
     def get_dirs(self, data_folder):
 
-        # Fill the folders and classes arrays with all the paths to the data
-        self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
-                        if os.path.isdir(os.path.join(data_folder, 
-                        self.class0, f))]
+        for c in self.classes:
+            self.classes_dirs.append([f for f in os.listdir(data_folder + c) 
+                        if os.path.isdir(os.path.join(data_folder, c, f))])
+            self.classes_dirs[-1].sort()
 
-        self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
-                         if os.path.isdir(os.path.join(data_folder, 
-                         self.class1, f))]
+            self.classes_videos.append([])
+            for f in self.classes_dirs[-1]:
+                self.classes_videos[-1].append(data_folder + c+ '/' + f +
+                                   '/' + f + '.mp4')
 
-        self.fall_dirs.sort()
-        self.not_fall_dirs.sort()
+            self.classes_videos[-1].sort()
 
-        for f in self.fall_dirs:
-            self.fall_videos.append(data_folder + self.class0 + '/' + f +
-                                '/' + f + '.mp4')
-
-        for f in self.not_fall_dirs:
-            self.not_fall_videos.append(data_folder + self.class1 + '/' +
-                                f + '/' + f + '.mp4')
-
-        self.fall_videos.sort()
-        self.not_fall_videos.sort()
-
-        
 if __name__ == '__main__':
     print("***********************************************************",
             file=sys.stderr)
@@ -381,9 +304,8 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    fextractor = Fextractor(args.classes[0], args.classes[1], 
-                args.num_features[0], args.input_dim[0], args.input_dim[1],
-                args.id[0])
+    fextractor = Fextractor(args.classes, args.num_features[0], 
+                args.input_dim[0], args.input_dim[1], args.id[0])
     fextractor.extract(args.cnn_arch[0], args.data_folder[0])
 
 '''
