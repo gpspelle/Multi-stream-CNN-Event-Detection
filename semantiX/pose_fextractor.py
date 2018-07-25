@@ -131,7 +131,7 @@ class Fextractor:
         number = 0
         
         for folder, dir, classe in zip(self.folders, dirs, self.class_value):
-            self.frames = glob.glob(folder + '/frame_*.jpg')
+            self.frames = glob.glob(folder + '/pose_*.jpg')
             self.frames.sort()
             label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
             label_values = np.load(label[0])
