@@ -31,7 +31,7 @@ from keras.applications.vgg16 import preprocess_input
     CNN
 '''
 
-class VGG16_custom: 
+class VGG16_temporal: 
 
     def __init__(self, num_features, x_size, y_size):
 
@@ -41,7 +41,7 @@ class VGG16_custom:
         self.x_size = x_size
         self.y_size = y_size
         
-        sliding_height = 10
+        self.sliding_height = 10
 
         self.layers_name = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 
                 'conv3_1', 'conv3_2', 'conv3_3', 'conv4_1', 'conv4_2', 
@@ -50,7 +50,7 @@ class VGG16_custom:
         self.model = Sequential()
 
         self.model.add(ZeroPadding2D((1, 1), input_shape=(self.x_size, 
-                       self.y_size, 2*sliding_height)))
+                       self.y_size, 2*self.sliding_height)))
         self.model.add(Convolution2D(64, (3, 3), activation='relu', 
                        name='conv1_1'))
         self.model.add(ZeroPadding2D((1, 1)))
@@ -149,6 +149,10 @@ if __name__ == '__main__':
     print("***********************************************************",
             file=sys.stderr)
     argp = argparse.ArgumentParser(description='Do architecture tasks')
+    argp.add_argument("-streams", dest='streams', type=str, nargs='+',
+            help='So far, spatial, temporal, pose and its combinations \
+                  Usage: -streams spatial temporal',
+            required=True)
     argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
             help='Usage: -num_feat <size_of_features_array>', required=True)
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
@@ -162,37 +166,66 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
     
-    arch = VGG16_custom(args.num_features[0], args.input_dim[0], 
+
+    if 'temporal' in args.streams:
+        arch = VGG16_temporal(args.num_features[0], args.input_dim[0], 
                      args.input_dim[1])
         
-    arch.weight_init(args.weight[0])
+        arch.weight_init(args.weight[0])
 
-    print("Saving your temporal CNN as VGG16_temporal")
-    arch.model.save('VGG16_temporal')
-
-    model = VGG16(weights='imagenet', include_top=False, 
-                  input_shape=(arch.x_size, arch.y_size, 3))
-
-    top_model = Sequential()
-    top_model.add(Flatten(input_shape=model.output_shape[1:]))
-    top_model.add(Dense(args.num_features[0], name='fc6', 
-              kernel_initializer='glorot_uniform'))
-
-    h5 = h5py.File(args.weight[0])
-    layer_dict = dict([(layer.name, layer) 
-                        for layer in top_model.layers])
-    # Copy the weights of the first fully-connected layer (fc6)
-    layer = 'fc6'
-    w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
-    w2 = np.transpose(np.asarray(w2), (1,0))
-    b2 = np.asarray(b2)
-    K.set_value(layer_dict[layer].kernel, w2)
-    K.set_value(layer_dict[layer].bias, b2)
+        print("Saving your temporal CNN as VGG16_temporal")
+        arch.model.save('VGG16_temporal')
 
 
-    model = Model(inputs=model.input, outputs=top_model(model.output))
-    print("Saving your spatial CNN as VGG16_spatial")
-    model.save('VGG16_spatial')
+    if 'pose' in args.streams:
+        model = VGG16(weights='imagenet', include_top=False, 
+                      input_shape=(args.input_dim[0], args.input_dim[1], 3))
+
+        top_model = Sequential()
+        top_model.add(Flatten(input_shape=model.output_shape[1:]))
+        top_model.add(Dense(args.num_features[0], name='fc6', 
+                  kernel_initializer='glorot_uniform'))
+
+        h5 = h5py.File(args.weight[0])
+        layer_dict = dict([(layer.name, layer) 
+                            for layer in top_model.layers])
+        # Copy the weights of the first fully-connected layer (fc6)
+        layer = 'fc6'
+        w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+        w2 = np.transpose(np.asarray(w2), (1,0))
+        b2 = np.asarray(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
+
+
+        model = Model(inputs=model.input, outputs=top_model(model.output))
+        print("Saving your pose-estimation CNN as VGG16_pose")
+        model.save('VGG16_pose')
+    
+    if 'spatial' in args.streams:
+        model = VGG16(weights='imagenet', include_top=False, 
+                      input_shape=(args.input_dim[0], args.input_dim[1], 3))
+
+        top_model = Sequential()
+        top_model.add(Flatten(input_shape=model.output_shape[1:]))
+        top_model.add(Dense(args.num_features[0], name='fc6', 
+                  kernel_initializer='glorot_uniform'))
+
+        h5 = h5py.File(args.weight[0])
+        layer_dict = dict([(layer.name, layer) 
+                            for layer in top_model.layers])
+        # Copy the weights of the first fully-connected layer (fc6)
+        layer = 'fc6'
+        w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+        w2 = np.transpose(np.asarray(w2), (1,0))
+        b2 = np.asarray(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
+
+
+        model = Model(inputs=model.input, outputs=top_model(model.output))
+        print("Saving your spatial CNN as VGG16_spatial")
+        model.save('VGG16_spatial')
 
 '''
     todo: criar excecoes para facilitar o uso
