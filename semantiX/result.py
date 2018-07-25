@@ -37,12 +37,13 @@ from matplotlib import pyplot as plt
 
 class Result:
 
-    def __init__(self, threshold, fid, cid):
+    def __init__(self, classes, threshold, fid, cid):
 
         self.features_key = 'features' 
         self.labels_key = 'labels'
         self.samples_key = 'samples'
         self.num_key = 'num'
+        self.classes = classes
 
         self.fid = fid
         self.cid = cid
@@ -93,7 +94,7 @@ class Result:
                 predicteds[0][j] += predicteds[i][j] 
             predicteds[0][j] /= len(streams)
 
-        for i in range(len(predicted)):
+        for i in range(len(predicteds[0])):
             if predicteds[0][i] < self.threshold:
                 predicteds[0][i] = 0
             else:
@@ -115,7 +116,7 @@ class Result:
         recall = tp/float(tp+fn)
         specificity = tn/float(tn+fp)
         f1 = 2*float(precision*recall)/float(precision+recall)
-        accuracy = accuracy_score(Y, predicted)
+        accuracy = accuracy_score(Truth, predicted)
 
         print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
         print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
@@ -134,43 +135,38 @@ class Result:
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
 
-        video = 1
-        inic = 0
-        misses = 0
+        stack_c = 0
+        class_c = 0
+        video_c = 0
+        all_num = [y for x in all_num for y in x]
+        for amount_videos in all_num:
+            cl = self.classes[class_c]
+            message = '###### ' + cl + ' videos ' + str(amount_videos)+' ######' 
+            print(message)
+            for num_video in range(amount_videos):
+                num_miss = 0
+                FP = 0
+                FN = 0
 
-        msage_fall = list("###### Fall videos ")
-        msage_fall.append(str(all_num[0][0]))
-        msage_fall.append(" ######")
-        msage_not_fall = list("###### Not fall videos ")
-        msage_not_fall.append(str(all_num[1][0]))
-        msage_not_fall.append(" ######")
+                for num_stack in range(stack_c, stack_c + all_samples[video_c+num_video][0]):
+                    if num_stack >= len(predicted):
+                        break
+                    elif predicted[num_stack] != _y2[num_stack]:
+                        if _y2[num_stack] == 0:
+                            FN += 1
+                        else:
+                            FP += 1
+                        num_miss+=1
+                    
+                if num_miss == 0:
+                    print("Hit video    %3d  [%5d miss  %5d stacks  %5d FP  %5d FN]" %(num_video+1, num_miss, all_samples[video_c+num_video][0], FP, FN))
+                else:
+                    print("Miss video   %3d  [%5d miss  %5d stacks  %5d FP  %5d FN]" %(num_video+1, num_miss, all_samples[video_c+num_video][0], FP, FN))
 
-        for x in range(len(all_samples)):
-            correct = 1
+                stack_c += all_samples[video_c + num_video][0]
 
-            if all_samples[x][0] == 0:
-                continue
-
-            if x == 0:
-                print(''.join(msage_fall))
-            elif x == all_num[0][0]:
-                print(''.join(msage_not_fall))
-                video = 1 
-
-            for i in range(inic, inic + all_samples[x][0]):
-                if i >= len(predicted):
-                   break 
-                elif predicted[i] != _y2[i]:
-                    misses+=1
-                    correct = 0
-
-            if correct == 1:
-               print("Hit video:      " + str(video))
-            else:
-               print("Miss video:     " + str(video))
-
-            video += 1
-            inic += all_samples[x][0]
+            video_c += amount_videos
+            class_c += 1
 
 if __name__ == '__main__':
 
@@ -189,6 +185,9 @@ if __name__ == '__main__':
             file=sys.stderr)
 
     argp = argparse.ArgumentParser(description='Do result  tasks')
+    argp.add_argument("-class", dest='classes', type=str, nargs='+', 
+            help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
+            required=True)
     argp.add_argument("-streams", dest='streams', type=str, nargs='+',
             help='Usage: -streams spatial temporal (to use 2 streams example)',
             required=True)
@@ -207,7 +206,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    result = Result(args.thresh[0], args.fid[0], args.cid[0])
+    result = Result(args.classes, args.thresh[0], args.fid[0], args.cid[0])
 
     result.result(args.streams)
 

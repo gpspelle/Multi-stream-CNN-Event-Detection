@@ -104,6 +104,7 @@ class Subtitle:
 
         stack_c = 0
         class_c = 0
+        video_c = 0
         all_num = [y for x in all_num for y in x]
         for amount_videos in all_num:
             list_video = self.classes_videos[class_c][:]
@@ -118,7 +119,7 @@ class Subtitle:
                 file_write = open(self.data + cl + '/' + save_dir[num_video] +
                         '/' + save_dir[num_video] + '.srt' , 'w')  
 
-                for num_stack in range(stack_c, stack_c + all_samples[num_video][0]):
+                for num_stack in range(stack_c, stack_c + all_samples[video_c+num_video][0]):
                     subtitle_c += 1
 
                     if num_stack >= len(predicted):
@@ -135,9 +136,11 @@ class Subtitle:
                     file_write.write("Output: %d\n" % int(predicted[num_stack]))
                     file_write.write("Truth: %d\n" % Truth[num_stack])
 
-                stack_c += all_samples[num_video][0]
+                stack_c += all_samples[video_c + num_video][0]
 
+            video_c += amount_videos
             class_c += 1
+
 
     def pre_result(self, stream):
         self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')

@@ -144,7 +144,7 @@ class Fextractor:
         dataset_labels = h5labels.create_dataset(labels_key, 
                 shape=(self.nb_total_stacks, 1), dtype='float64')  
         dataset_samples = h5samples.create_dataset(samples_key, 
-                shape=(len(self.classes), 1), 
+                shape=(len(self.class_value), 1), 
                 dtype='int32')  
         dataset_num = h5num_classes.create_dataset(num_key, shape=(len(self.classes), 1), 
                 dtype='int32')  
