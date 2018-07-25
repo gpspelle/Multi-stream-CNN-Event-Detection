@@ -82,7 +82,7 @@ class Subtitle:
                 predicteds[0][j] += predicteds[i][j] 
             predicteds[0][j] /= len(streams)
 
-        for i in range(len(predicted)):
+        for i in range(len(predicteds[0])):
             if predicteds[0][i] < self.threshold:
                 predicteds[0][i] = 0
             else:
