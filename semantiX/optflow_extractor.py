@@ -38,29 +38,26 @@ import gc
 
 class Optflow_extractor:
 
-    def __init__(self, class0, class1, x_size, y_size):
-        self.class0 = class0
-        self.class1 = class1
+    def __init__(self, classes, x_size, y_size):
+        self.classes = classes 
+
+        self.classes_dirs = []
+        self.classes_videos = []
         self.fall_dirs = []
-        self.not_fall_dirs = []
-        self.fall_videos = []
-        self.not_fall_videos = []
-        self.classes = []
+
+        self.class_value = []
         self.x_size = x_size
         self.y_size = y_size
-        # Total amount of stacks with sliding window=num_images-sliding_height+1
 
     def extract(self, data_folder):
 
         self.get_dirs(data_folder)
 
-        # Extracting Fall optical flow
-        self.extract_optflow(data_folder, self.fall_videos, self.fall_dirs,
-                             self.class0)
-
-        # Extracting NotFall optical flow
-        self.extract_optflow(data_folder, self.not_fall_videos,
-                             self.not_fall_dirs, self.class1)
+    
+        for i in range(len(self.classes)):
+            # Extracting optical flow
+            self.extract_optflow(data_folder, self.classes_videos[i], 
+                    self.classes_dirs[i], self.classes[i])
 
     def extract_optflow(self, data_folder, videos, dirs, class_):
 
@@ -120,32 +117,18 @@ class Optflow_extractor:
 
     def get_dirs(self, data_folder):
 
-        # Fill the folders and classes arrays with all the paths to the data
-        self.fall_dirs = [f for f in os.listdir(data_folder + self.class0) 
-                        if os.path.isdir(os.path.join(data_folder, 
-                        self.class0, f))]
+        for c in self.classes:
+            self.classes_dirs.append([f for f in os.listdir(data_folder + c) 
+                        if os.path.isdir(os.path.join(data_folder, c, f))])
+            self.classes_dirs[-1].sort()
 
-        
+            self.classes_videos.append([])
+            for f in self.classes_dirs[-1]:
+                self.classes_videos[-1].append(data_folder + c+ '/' + f +
+                                   '/' + f + '.mp4')
 
-        self.not_fall_dirs = [f for f in os.listdir(data_folder + self.class1) 
-                         if os.path.isdir(os.path.join(data_folder, 
-                         self.class1, f))]
+            self.classes_videos[-1].sort()
 
-        self.fall_dirs.sort()
-        self.not_fall_dirs.sort()
-
-        for f in self.fall_dirs:
-            self.fall_videos.append(data_folder + self.class0 + '/' + f +
-                                '/' + f + '.mp4')
-
-        for f in self.not_fall_dirs:
-            self.not_fall_videos.append(data_folder + self.class1 + '/' +
-                                f + '/' + f + '.mp4')
-
-        self.fall_videos.sort()
-        self.not_fall_videos.sort()
-
-        
 if __name__ == '__main__':
     print("***********************************************************",
             file=sys.stderr)
@@ -167,8 +150,8 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    optflow_extractor = Optflow_extractor(args.classes[0], args.classes[1], 
-                args.input_dim[0], args.input_dim[1])
+    optflow_extractor = Optflow_extractor(args.classes, args.input_dim[0],
+                        args.input_dim[1])
     optflow_extractor.extract(args.data_folder[0])
 
 '''
