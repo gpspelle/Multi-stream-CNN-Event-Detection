@@ -20,7 +20,14 @@ from keras.applications.vgg16 import preprocess_input
 '''
 
 ''' Documentation: script multi-stream-vgg16 
+
+    This code use Kera's applications in deep learning to create and load
+    weights for the possibilities of CNN's that are implemented here.
     
+    Temporal: input are a 10+10 stack of optical flows (mag, ord)
+    Pose: imput are RGB drawed skeletons using tf-pose-estimation
+    Spatial: input are RGB images
+
 '''
 
 if __name__ == '__main__':
@@ -64,8 +71,8 @@ if __name__ == '__main__':
         top_model.save('VGG16_temporal')
 
     if 'pose' in args.streams:
-        model = VGG16(include_top=False, 
-                        input_shape=(args.input_dim[0], args.input_dim[1], 3))
+        model = VGG16(include_top=False, input_shape=(args.input_dim[0], 
+                    args.input_dim[1], 3))
 
         top_model = Sequential()
         top_model.add(Flatten(input_shape=model.output_shape[1:]))
@@ -78,8 +85,8 @@ if __name__ == '__main__':
         model.save('VGG16_pose')
     
     if 'spatial' in args.streams:
-        model = VGG16(include_top=False, 
-                        input_shape=(args.input_dim[0], args.input_dim[1], 3))
+        model = VGG16(include_top=False, input_shape=(args.input_dim[0],
+                    args.input_dim[1], 3))
 
         top_model = Sequential()
         top_model.add(Flatten(input_shape=model.output_shape[1:]))
@@ -91,12 +98,3 @@ if __name__ == '__main__':
         print("Saving your spatial CNN as VGG16_spatial")
         model.save('VGG16_spatial')
 
-'''
-    todo: criar excecoes para facilitar o uso
-'''
-'''
-    todo: parametros deveriam ser opcionais e nao obrigatorios.
-    Alternativas: tornar os parametros como opcao se voce quiser alterar o
-    default? Mas ai terei de mudar o tratamento do caso em que nenhum parametro
-    eh passado, pois dai nenhum eh requerido mais. Trade-offs de design
-'''
