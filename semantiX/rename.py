@@ -8,7 +8,7 @@ replace = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2',
            'block1_pool', 'block2_pool', 'block3_pool', 'block4_pool', 
            'block5_pool', '1']
 
-h5 = h5py.File('weights.h5', 'r+')
+h5 = h5py.File('weights_vgg16.h5', 'r+')
 for i in h5:
     l = list(h5[i])
     for j in range(len(l)):

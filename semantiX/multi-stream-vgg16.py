@@ -4,8 +4,7 @@ import h5py
 import numpy as np
 import keras
 from keras.models import Model, Sequential
-from keras.layers import Convolution2D, MaxPooling2D, Flatten, Activation, \
-                         Dense, Dropout, ZeroPadding2D
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Input
 from keras import backend as K
 from keras.applications.vgg16 import VGG16
 from keras.preprocessing import image
@@ -57,18 +56,72 @@ if __name__ == '__main__':
     sliding_height = 10
     
     if 'temporal' in args.streams:
-        model = VGG16(include_top=False, input_shape=(args.input_dim[0], 
-                        args.input_dim[1], 2*sliding_height))
+        
+        # All this must be done instead of calling VGG16 as the others, because
+        # of the input format needs a channel 3, and for temporal we're using
+        # 2 * sliding_height as channel. 
 
-        top_model = Sequential()
-        top_model.add(Flatten(input_shape=model.output_shape[1:]))
-        top_model.add(Dense(args.num_features[0], name='fc6', 
-                  kernel_initializer='glorot_uniform'))
+        stack_input = (args.input_dim[0], args.input_dim[1], 2*sliding_height)
+        tensor_stack_input = Input(shape=stack_input)
 
-        model.load_weights(args.weight[0], by_name=True)
-        model = Model(inputs=model.input, outputs=top_model(model.output))
+        # Block 1
+        x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv1')(tensor_stack_input)
+        x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv2')(x)
+        x = MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
+
+        # Block 2
+        x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
+        x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2')(x)
+        x = MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
+
+        # Block 3
+        x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
+        x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2')(x)
+        x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
+        x = MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
+
+        # Block 4
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv2')(x)
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3')(x)
+        x = MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
+
+        # Block 5
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv1')(x)
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv2')(x)
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3')(x)
+        x = MaxPooling2D((2, 2), strides=(2, 2), name='block5_pool')(x)
+
+        x = Flatten(name='flatten')(x)
+        x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
+
+        model = Model(tensor_stack_input, x, name='VGG16')
+
+        layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
+
+        h5 = h5py.File(args.weight[0])
+             
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
+        
+        # Copy the weights stored in the weights file to the feature extractor part of the VGG16
+        for layer in layers_name:
+            w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+            w2 = np.transpose(np.asarray(w2), (3,2,1,0))
+            w2 = w2[::-1, ::-1, :, :]
+            b2 = np.asarray(b2)
+            K.set_value(layer_dict[layer].kernel, w2)
+            K.set_value(layer_dict[layer].bias, b2)
+
+        # Copy the weights of the first fully-connected layer (fc6)
+        layer = 'fc6'
+        w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+        w2 = np.transpose(np.asarray(w2), (1,0))
+        b2 = np.asarray(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
+
         print("Saving your temporal CNN as VGG16_temporal")
-        top_model.save('VGG16_temporal')
+        model.save('VGG16_temporal')
 
     if 'pose' in args.streams:
         model = VGG16(include_top=False, input_shape=(args.input_dim[0], 
@@ -79,7 +132,35 @@ if __name__ == '__main__':
         top_model.add(Dense(args.num_features[0], name='fc6', 
                   kernel_initializer='glorot_uniform'))
 
-        model.load_weights(args.weight[0], by_name=True)
+        layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
+
+        h5 = h5py.File(args.weight[0])
+             
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
+        
+        # Copy the weights stored in the weights file to the feature extractor part of the VGG16
+        for layer in layers_name:
+            w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+            w2 = np.transpose(np.asarray(w2), (3,2,1,0))
+            w2 = w2[::-1, ::-1, :, :]
+            b2 = np.asarray(b2)
+            print(layer)
+            K.set_value(layer_dict[layer].kernel, w2)
+            K.set_value(layer_dict[layer].bias, b2)
+
+        # Copy the weights of the first fully-connected layer (fc6)
+        layer = 'fc6'
+        w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+        w2 = np.transpose(np.asarray(w2), (1,0))
+        b2 = np.asarray(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
+
+
+        # This simple keras function can't be used because of the transformations
+        # we need to apply and the current format of the data stored in h5
+        #model.load_weights(args.weight[0], by_name=True)
+
         model = Model(inputs=model.input, outputs=top_model(model.output))
         print("Saving your pose-estimation CNN as VGG16_pose")
         model.save('VGG16_pose')
@@ -92,9 +173,35 @@ if __name__ == '__main__':
         top_model.add(Flatten(input_shape=model.output_shape[1:]))
         top_model.add(Dense(args.num_features[0], name='fc6', 
                   kernel_initializer='glorot_uniform'))
+        
+        layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        model.load_weights(args.weight[0], by_name=True)
+        h5 = h5py.File(args.weight[0])
+             
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
+        
+        # Copy the weights stored in the weights file to the feature extractor part of the VGG16
+        for layer in layers_name:
+            w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+            w2 = np.transpose(np.asarray(w2), (3,2,1,0))
+            w2 = w2[::-1, ::-1, :, :]
+            b2 = np.asarray(b2)
+            K.set_value(layer_dict[layer].kernel, w2)
+            K.set_value(layer_dict[layer].bias, b2)
+
+        # Copy the weights of the first fully-connected layer (fc6)
+        layer = 'fc6'
+        w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+        w2 = np.transpose(np.asarray(w2), (1,0))
+        b2 = np.asarray(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
+
+        # This simple keras function can't be used because of the transformations
+        # we need to apply and the current format of the data stored in h5
+        #model.load_weights(args.weight[0], by_name=True)
         model = Model(inputs=model.input, outputs=top_model(model.output))
+
         print("Saving your spatial CNN as VGG16_spatial")
         model.save('VGG16_spatial')
 

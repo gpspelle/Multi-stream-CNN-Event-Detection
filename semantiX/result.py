@@ -74,7 +74,7 @@ class Result:
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
     
-            if stream == 'spatial':
+            if stream == 'spatial' or 'pose':
                 Truth = Y
                 h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
                 all_samples = np.asarray(h5samples[self.samples_key])
