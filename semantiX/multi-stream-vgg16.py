@@ -149,7 +149,7 @@ if __name__ == '__main__':
         x = Flatten(name='flatten')(output_vgg16)
         x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
 
-        model = Model(input=input, output=x, name='VGG16_pose')
+        model = Model(inputs=input, outputs=x, name='VGG16_pose')
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
 
         # Copy the weights of the first fully-connected layer (fc6)
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         x = Flatten(name='flatten')(output_vgg16)
         x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
 
-        model = Model(input=input, output=x, name='VGG16_spatial')
+        model = Model(inputs=input, outputs=x, name='VGG16_spatial')
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
 
         # Copy the weights of the first fully-connected layer (fc6)
