@@ -44,7 +44,7 @@ if __name__ == '__main__':
             help='Usage: -num_feat <size_of_features_array>', required=True)
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
-    argp.add_argument("-weight", dest='weight', type=str, nargs=1, 
+    argp.add_argument("-weight", dest='weight', type=str, nargs='+', 
             help='Usage: -weight <path_to_your_weight_file>', required=True)
 
     try:
@@ -95,7 +95,7 @@ if __name__ == '__main__':
         x = Flatten(name='flatten')(x)
         x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
 
-        model = Model(tensor_stack_input, x, name='VGG16')
+        model = Model(tensor_stack_input, x, name='VGG16_temporal')
 
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
@@ -124,17 +124,11 @@ if __name__ == '__main__':
         model.save('VGG16_temporal')
 
     if 'pose' in args.streams:
-        model = VGG16(include_top=False, input_shape=(args.input_dim[0], 
-                    args.input_dim[1], 3))
-
-        top_model = Sequential()
-        top_model.add(Flatten(input_shape=model.output_shape[1:]))
-        top_model.add(Dense(args.num_features[0], name='fc6', 
-                  kernel_initializer='glorot_uniform'))
-
+        model = VGG16(include_top=False)
+        
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        h5 = h5py.File(args.weight[0])
+        h5 = h5py.File(args.weight[1])
              
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
         
@@ -144,9 +138,19 @@ if __name__ == '__main__':
             w2 = np.transpose(np.asarray(w2), (3,2,1,0))
             w2 = w2[::-1, ::-1, :, :]
             b2 = np.asarray(b2)
-            print(layer)
             K.set_value(layer_dict[layer].kernel, w2)
             K.set_value(layer_dict[layer].bias, b2)
+
+        input = Input(shape=(args.input_dim[0], args.input_dim[1], 3),
+                        name='pose_input')
+
+        output_vgg16 = model(input)
+
+        x = Flatten(name='flatten')(output_vgg16)
+        x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
+
+        model = Model(input=input, output=x, name='VGG16_pose')
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
 
         # Copy the weights of the first fully-connected layer (fc6)
         layer = 'fc6'
@@ -156,27 +160,19 @@ if __name__ == '__main__':
         K.set_value(layer_dict[layer].kernel, w2)
         K.set_value(layer_dict[layer].bias, b2)
 
-
         # This simple keras function can't be used because of the transformations
         # we need to apply and the current format of the data stored in h5
         #model.load_weights(args.weight[0], by_name=True)
 
-        model = Model(inputs=model.input, outputs=top_model(model.output))
         print("Saving your pose-estimation CNN as VGG16_pose")
         model.save('VGG16_pose')
     
     if 'spatial' in args.streams:
-        model = VGG16(include_top=False, input_shape=(args.input_dim[0],
-                    args.input_dim[1], 3))
+        model = VGG16(include_top=False)
 
-        top_model = Sequential()
-        top_model.add(Flatten(input_shape=model.output_shape[1:]))
-        top_model.add(Dense(args.num_features[0], name='fc6', 
-                  kernel_initializer='glorot_uniform'))
-        
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        h5 = h5py.File(args.weight[0])
+        h5 = h5py.File(args.weight[1])
              
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
         
@@ -188,6 +184,17 @@ if __name__ == '__main__':
             b2 = np.asarray(b2)
             K.set_value(layer_dict[layer].kernel, w2)
             K.set_value(layer_dict[layer].bias, b2)
+        
+        input = Input(shape=(args.input_dim[0], args.input_dim[1], 3),
+                        name='pose_input')
+
+        output_vgg16 = model(input)
+
+        x = Flatten(name='flatten')(output_vgg16)
+        x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
+
+        model = Model(input=input, output=x, name='VGG16_spatial')
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
 
         # Copy the weights of the first fully-connected layer (fc6)
         layer = 'fc6'
@@ -200,7 +207,6 @@ if __name__ == '__main__':
         # This simple keras function can't be used because of the transformations
         # we need to apply and the current format of the data stored in h5
         #model.load_weights(args.weight[0], by_name=True)
-        model = Model(inputs=model.input, outputs=top_model(model.output))
 
         print("Saving your spatial CNN as VGG16_spatial")
         model.save('VGG16_spatial')
