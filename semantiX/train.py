@@ -1,6 +1,7 @@
 import argparse
 import sys
 from sklearn.model_selection import KFold
+from sklearn.model_selection import train_test_split
 import numpy as np
 from numpy.random import seed
 seed(1)
@@ -168,19 +169,21 @@ class Train:
             mdrs = []
             accuracies = []
 
-            X_t = self.all_features
-            _y_t = self.all_labels
+            X_train, X_test, y_train, y_test = train_test_split(self.all_features,
+                                                 self.all_albels, test_size=0.2)
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different weight
             class_weight = {0: self.weight_0, 1: 1}
             # Batch training
             if self.mini_batch_size == 0:
-                history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
-                        batch_size=X_t.shape[0], epochs=self.epochs, shuffle='batch',
-                        class_weight=class_weight)
+                history = self.classifier.fit(X_train, y_train, 
+                        validation_data=(X_test, y_test), 
+                        batch_size=X_train.shape[0], epochs=self.epochs, 
+                        shuffle='batch', class_weight=class_weight)
             else:
-                history = self.classifier.fit(X_t, _y_t, validation_split=0.20, 
+                history = self.classifier.fit(X_train, y_train, 
+                        validation_data=(X_test, y_test), 
                         batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
 
@@ -191,8 +194,8 @@ class Train:
             self.classifier.save(stream + '_classifier_' + self.id + '.h5')
 
             # ==================== EVALUATION ========================        
-            predicted = self.classifier.predict(np.asarray(X_t))
-            self.evaluate(predicted, X_t, _y_t, sensitivities, 
+            predicted = self.classifier.predict(np.asarray(X_test))
+            self.evaluate(predicted, X_test, y_test, sensitivities, 
             specificities, fars, mdrs, accuracies)
 
     def evaluate(self, predicted, X2, _y2, sensitivities, 
