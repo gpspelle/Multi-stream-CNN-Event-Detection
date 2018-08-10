@@ -52,7 +52,6 @@ class Optflow_extractor:
     def extract(self, data_folder):
 
         self.get_dirs(data_folder)
-
     
         for i in range(len(self.classes)):
             # Extracting optical flow
@@ -81,6 +80,7 @@ class Optflow_extractor:
                 success, frame2 = cap.read()
                 if success == False:
                     break
+
                 next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
                 flow = cv2.calcOpticalFlowFarneback(prvs, next, None, 
                         0.702, 5, 10, 2, 7, 1.5, 0)

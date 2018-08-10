@@ -24,7 +24,6 @@ import gc
     
     This class has a few methods:
 
-    generator
     extract
 
     The only method that should be called outside of this class is:
@@ -55,14 +54,6 @@ class Fextractor:
         self.id = id
         # Total amount of stacks with sliding window=num_images-sliding_height+1
         self.nb_total_stacks = 0
-
-    def generator(self, list1, list2):
-        '''
-        Auxiliar generator: returns the ith element of both given list with 
-        each call to next() 
-        '''
-        for x,y in zip(list1,list2):
-            yield x, y
 
     def extract(self, model, data_folder):
 
@@ -129,8 +120,7 @@ class Fextractor:
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
                     self.class_value.append(self.classes[c])
-                    self.nb_total_stacks += len(self.frames)
-
+                    self.nb_total_stacks += len(self.frames) - sliding_height + 1
 
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
@@ -163,19 +153,25 @@ class Fextractor:
             label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
             label_values = np.load(label[0])
 
-            nb_stacks = len(self.x_images)-sliding_height+1
-            # Here nb_stacks optical flow stacks will be stored
+            nb_stacks = len(self.x_images) - sliding_height + 1
 
             amount_stacks = 100 
             fraction_stacks = nb_stacks // amount_stacks
-            gen = self.generator(self.x_images, self.y_images)
+
+            image_c = 0
             for fraction in range(fraction_stacks):
                 flow = np.zeros(shape=(self.x_size, self.y_size, 2*sliding_height, 
                                 amount_stacks), dtype=np.float64)
-                for i in range(amount_stacks):
-                    flow_x_file, flow_y_file = next(gen)
+
+                for i in range(amount_stacks + sliding_height -1):
+                    flow_x_file = self.x_images[image_c]
+                    flow_y_file = self.y_images[image_c]
+
+                    image_c += 1
+
                     img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
                     img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
+
                     # Assign an image i to the jth stack in the kth position,
                     # but also in the j+1th stack in the k+1th position and so 
                     # on (for sliding window) 
@@ -185,6 +181,10 @@ class Fextractor:
                             flow[:,:,2*s+1,i-s] = img_y
                     del img_x,img_y
                     gc.collect()
+
+                # Restore last images from previous fraction to start next 
+                # fraction    
+                image_c = image_c - sliding_height + 1
                     
                 # Subtract mean
                 flow = flow - np.tile(flow_mean[...,np.newaxis], 
@@ -211,7 +211,11 @@ class Fextractor:
                             amount_stacks), dtype=np.float64)
 
             for i in range(amount_stacks + sliding_height - 1):
-                flow_x_file, flow_y_file = next(gen)
+                flow_x_file = self.x_images[image_c]
+                flow_y_file = self.y_images[image_c]
+
+                image_c += 1
+
                 img_x = cv2.imread(flow_x_file, cv2.IMREAD_GRAYSCALE)
                 img_y = cv2.imread(flow_y_file, cv2.IMREAD_GRAYSCALE)
                 # Assign an image i to the jth stack in the kth position,

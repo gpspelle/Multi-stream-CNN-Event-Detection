@@ -154,7 +154,7 @@ class Train:
                                                      np.std(accuracies)))
 
     def train(self, streams):
-    
+   
         for stream in streams:
             self.set_classifier()
 
@@ -169,8 +169,8 @@ class Train:
             mdrs = []
             accuracies = []
 
-            X_train, X_test, y_train, y_test = train_test_split(self.all_features,
-                                                 self.all_albels, test_size=0.2)
+            X_train, X_test, y_train, y_test = train_test_split(np.asarray(self.all_features), 
+                                     np.asarray(self.all_labels), test_size=0.2)
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different weight

@@ -69,11 +69,14 @@ class Result:
 
     def result(self, streams):
 
-        # todo: change X and Y variable names
+        # todo: so far, a stack is being compared with the value of the it's
+        # first frame, a better approach would be to comparate it with the 
+        # average value from the frames that belong to a stack
         predicteds = []
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
-    
+
+            predicted = np.asarray(predicted.flat)
             if stream == 'spatial' or stream == 'pose':
                 Truth = Y
                 h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
@@ -81,18 +84,87 @@ class Result:
                 pos = 0
                 index = []
                 for x in all_samples:
-                    index += list(range(pos+x[0]-self.sliding_height, pos+x[0]))
+                    index += list(range(pos + x[0] - self.sliding_height, pos + x[0]))
                     pos+=x[0]
 
                 Truth = np.delete(Truth, index)
-                predicted = np.delete(predicted, index) 
+                clean_predicted = np.delete(predicted, index)
+                predicteds.append(clean_predicted)
 
-            predicteds.append(predicted)
+                print('EVALUATE WITH %s' % (stream))
+                
+                for i in range(len(predicted)):
+                    if predicted[i] < self.threshold:
+                        predicted[i] = 0
+                    else:
+                        predicted[i] = 1
+
+                # Array of predictions 0/1
+                predicted = np.asarray(predicted).astype(int)
+                # Compute metrics and print them
+                cm = confusion_matrix(Y, predicted, labels=[0,1])
+                tp = cm[0][0]
+                fn = cm[0][1]
+                fp = cm[1][0]
+                tn = cm[1][1]
+                tpr = tp/float(tp+fn)
+                fpr = fp/float(fp+tn)
+                fnr = fn/float(fn+tp)
+                tnr = tn/float(tn+fp)
+                precision = tp/float(tp+fp)
+                recall = tp/float(tp+fn)
+                specificity = tn/float(tn+fp)
+                f1 = 2*float(precision*recall)/float(precision+recall)
+                accuracy = accuracy_score(Y, predicted)
+
+                print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+                print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+                print('Sensitivity/Recall: {}'.format(recall))
+                print('Specificity: {}'.format(specificity))
+                print('Precision: {}'.format(precision))
+                print('F1-measure: {}'.format(f1))
+                print('Accuracy: {}'.format(accuracy))
+
+            else:
+                predicteds.append(np.copy(predicted)) 
+                print('EVALUATE WITH %s' % (stream))
+                
+                for i in range(len(predicted)):
+                    if predicted[i] < self.threshold:
+                        predicted[i] = 0
+                    else:
+                        predicted[i] = 1
+
+                # Array of predictions 0/1
+                predicted = np.asarray(predicted).astype(int)
+                # Compute metrics and print them
+                cm = confusion_matrix(Y, predicted, labels=[0,1])
+                tp = cm[0][0]
+                fn = cm[0][1]
+                fp = cm[1][0]
+                tn = cm[1][1]
+                tpr = tp/float(tp+fn)
+                fpr = fp/float(fp+tn)
+                fnr = fn/float(fn+tp)
+                tnr = tn/float(tn+fp)
+                precision = tp/float(tp+fp)
+                recall = tp/float(tp+fn)
+                specificity = tn/float(tn+fp)
+                f1 = 2*float(precision*recall)/float(precision+recall)
+                accuracy = accuracy_score(Y, predicted)
+
+                print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+                print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+                print('Sensitivity/Recall: {}'.format(recall))
+                print('Specificity: {}'.format(specificity))
+                print('Precision: {}'.format(precision))
+                print('F1-measure: {}'.format(f1))
+                print('Accuracy: {}'.format(accuracy))
 
         for j in range(len(predicteds[0])):
             for i in range(1, len(streams)):
-                predicteds[0][j] += predicteds[i][j] 
-            predicteds[0][j] /= len(streams)
+                predicteds[0][j] += 1* predicteds[i][j] 
+            predicteds[0][j] /= (1 + 1 *  len(range(1, len(streams))))
 
         for i in range(len(predicteds[0])):
             if predicteds[0][i] < self.threshold:
@@ -100,10 +172,11 @@ class Result:
             else:
                 predicteds[0][i] = 1
 
+        print('EVALUATE WITH AVERAGE OF STREAMS')
         # Array of predictions 0/1
         predicted = np.asarray(predicteds[0]).astype(int)
         # Compute metrics and print them
-        cm = confusion_matrix(Truth, predicted,labels=[0,1])
+        cm = confusion_matrix(Truth, predicted, labels=[0,1])
         tp = cm[0][0]
         fn = cm[0][1]
         fp = cm[1][0]
