@@ -61,7 +61,8 @@ class Subtitle:
         predicteds = []
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
-    
+   
+            predicted = np.asarray(predicted.flat)
             if stream == 'spatial' or stream == 'pose':
                 Truth = Y
                 h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
@@ -79,8 +80,8 @@ class Subtitle:
 
         for j in range(len(predicteds[0])):
             for i in range(1, len(streams)):
-                predicteds[0][j] += predicteds[i][j] 
-            predicteds[0][j] /= len(streams)
+                predicteds[0][j] +=  1 * predicteds[i][j] 
+            predicteds[0][j] /= (1 + 1 * len(range(1, len(streams))))
 
         for i in range(len(predicteds[0])):
             if predicteds[0][i] < self.threshold:
@@ -91,8 +92,8 @@ class Subtitle:
         # Array of predictions 0/1
         predicted = np.asarray(predicteds[0]).astype(int)
 
-        h5samples = h5py.File(streams[0] +  '_samples_' + self.fid + '.h5', 'r')
-        h5num = h5py.File(streams[0] +'_num_' + self.fid + '.h5', 'r')
+        h5samples = h5py.File('temporal_samples_' + self.fid + '.h5', 'r')
+        h5num = h5py.File('temporal_num_' + self.fid + '.h5', 'r')
 
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
