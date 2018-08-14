@@ -107,43 +107,73 @@ class Result:
         # first frame, a better approach would be to comparate it with the 
         # average value from the frames that belong to a stack
         predicteds = []
+
+        temporal = 'temporal' in streams
+        len_RGB = 0
+        len_STACK = 0
+        full_predicteds = []
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
 
             predicted = np.asarray(predicted.flat)
-            if stream == 'spatial' or stream == 'pose':
-                Truth = Y
-                h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
-                all_samples = np.asarray(h5samples[self.samples_key])
-                pos = 0
-                index = []
-                for x in all_samples:
-                    index += list(range(pos + x[0] - self.sliding_height, pos + x[0]))
-                    pos+=x[0]
 
-                Truth = np.delete(Truth, index)
-                clean_predicted = np.delete(predicted, index)
-                predicteds.append(clean_predicted)
+            if stream == 'spatial' or stream == 'pose':
+                len_RGB = len(Y)
 
                 print('EVALUATE WITH %s' % (stream))
                 
                 self.evaluate(Y, predicted)
+                full_predicteds.append(predicted)
 
-            else:
+                if not temporal:
+                    Truth = Y 
+                    predicteds.append(predicted)
+                else:    
+                    Truth = Y
+                    h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
+                    all_samples = np.asarray(h5samples[self.samples_key])
+                    pos = 0
+                    index = []
+                    for x in all_samples:
+                        index += list(range(pos + x[0] - self.sliding_height, pos + x[0]))
+                        pos+=x[0]
+
+                    Truth = np.delete(Truth, index)
+                    clean_predicted = np.delete(predicted, index)
+                    predicteds.append(clean_predicted)
+
+            elif stream == 'temporal':
+                len_STACK = len(Y)
                 predicteds.append(np.copy(predicted)) 
                 print('EVALUATE WITH %s' % (stream))
                 
                 self.evaluate(Y, predicted)
 
-        for j in range(len(predicteds[0])):
-            for i in range(1, len(streams)):
-                predicteds[0][j] += 1* predicteds[i][j] 
-            predicteds[0][j] /= (1 + 1 *  len(range(1, len(streams))))
+        if temporal:
+            avg_predicted = np.zeros(len_STACK, dtype=np.float)
+            for j in range(len_STACK):
+                for i in range(len(streams)):
+                    avg_predicted[j] += 1* predicteds[i][j] 
+
+                avg_predicted[j] /= (len(streams))
+
+        else:
+            avg_predicted = np.zeros(len_RGB, dtype=np.float)
+            for j in range(len_RGB):
+                for i in range(len(streams)):
+                    avg_predicted[j] += 1* predicteds[i][j] 
+
+                avg_predicted[j] /= (len(streams))
 
         print('EVALUATE WITH average')
-        self.evaluate(Truth, predicteds[0])
+        self.evaluate(Truth, avg_predicted)
 
-        self.check_videos(Truth, predicteds[0], streams[0])
+        if temporal:
+            self.check_videos(Truth, avg_predicted, 'temporal')
+        elif 'pose' in streams:
+            self.check_videos(Truth, avg_predicted, 'pose')
+        else:
+            self.check_videos(Truth, avg_predicted, 'spatial')
 
     def check_videos(self, _y2, predicted, stream):
         h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
