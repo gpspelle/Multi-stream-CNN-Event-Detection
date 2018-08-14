@@ -6,7 +6,7 @@ import keras
 from keras.models import Model, Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Input
 from keras import backend as K
-from keras.applications.vgg16 import VGG16
+from keras.applications.resnet50 import ResNet50
 
 ''' This code is based on Núñez-Marcos, A., Azkune, G., & Arganda-Carreras, 
     I. (2017). "Vision-Based Fall Detection with Convolutional Neural Networks"
@@ -15,7 +15,7 @@ from keras.applications.vgg16 import VGG16
     Semantix. 
 '''
 
-''' Documentation: script multi-stream-vgg16 
+''' Documentation: script multi-stream-resnet50 
 
     This code use Kera's applications in deep learning to create and load
     weights for the possibilities of CNN's that are implemented here.
@@ -121,8 +121,11 @@ if __name__ == '__main__':
         model.save('VGG16_temporal')
 
     if 'pose' in args.streams:
-        model = VGG16(include_top=False)
+        model = ResNet50(include_top=False, weights='imagenet')
         
+        print(model.summary())
+
+        exit(1)
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
         h5 = h5py.File(args.weight[1])
