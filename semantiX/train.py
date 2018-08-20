@@ -43,7 +43,7 @@ from matplotlib import pyplot as plt
 '''
 class Train:
 
-    def __init__(self, threshold, num_features, epochs, opt, learning_rate, 
+    def __init__(self, threshold, num_features, epochs, learning_rate, 
     weight_0, mini_batch_size, id, batch_norm):
 
         '''
@@ -61,7 +61,6 @@ class Train:
         self.threshold = threshold
         self.num_features = num_features
         self.epochs = epochs
-        self.opt = opt
         self.learning_rate = learning_rate
         self.weight_0 = weight_0
         self.mini_batch_size = mini_batch_size
@@ -113,7 +112,7 @@ class Train:
                 _y2 = np.concatenate((self.all_labels[test_falls, ...], 
                     self.all_labels[test_nofalls, ...]))   
                 
-                self.set_classifier() 
+                self.set_classifier_vgg16() 
 
                 # ==================== TRAINING ========================     
                 # weighting of each class: only the fall class gets a different
@@ -155,8 +154,13 @@ class Train:
 
     def train(self, streams):
    
+        VGG16 = True
         for stream in streams:
-            self.set_classifier()
+
+            if VGG16:
+                self.set_classifier_vgg16()
+            else:
+                self.set_classifier_resnet50()
 
             h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
             h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
@@ -238,7 +242,29 @@ class Train:
         mdrs.append(fnr)
         accuracies.append(accuracy)
 
-    def set_classifier(self):
+    def set_classifier_resnet50(self):
+        extracted_features = Input(shape=(self.num_features,), dtype='float32',
+                                   name='input')
+        if self.batch_norm:
+            x = BatchNormalization(axis=-1, momentum=0.99, 
+                                   epsilon=0.001)(extracted_features)
+            x = Activation('relu')(x)
+        else:
+            x = ELU(alpha=1.0)(extracted_features)
+       
+        x = Dropout(0.9)(x)
+        x = Dense(1, name='predictions', kernel_initializer='glorot_uniform')(x)
+        x = Activation('sigmoid')(x)
+
+        adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
+                    epsilon=1e-08, decay=0.0005)
+
+        self.classifier = Model(input=extracted_features, output=x, 
+                           name='classifier')
+        self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
+                           metrics=['accuracy'])
+
+    def set_classifier_vgg16(self):
         extracted_features = Input(shape=(self.num_features,), dtype='float32',
                                    name='input')
         if self.batch_norm:
@@ -261,9 +287,8 @@ class Train:
                   kernel_initializer='glorot_uniform')(x)
         x = Activation('sigmoid')(x)
         
-        if self.opt == 'adam':
-            adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
-                        epsilon=1e-08, decay=0.0005)
+        adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
+                    epsilon=1e-08, decay=0.0005)
 
         self.classifier = Model(input=extracted_features, output=x, 
                            name='classifier')
@@ -346,9 +371,6 @@ if __name__ == '__main__':
             help='Usage: -num_feat <size_of_features_array>', required=True)
     argp.add_argument("-ep", dest='ep', type=int, nargs=1,
             help='Usage: -ep <num_of_epochs>', required=True)
-    argp.add_argument("-optim", dest='opt', type=str, nargs=1,
-            help='Usage: -optim <optimizer_used> \
-                  Example: -optim adam', required=True)
     argp.add_argument("-lr", dest='lr', type=float, nargs=1,
             help='Usage: -lr <learning_rate_value>', required=True)
     argp.add_argument("-w0", dest='w0', type=float, nargs=1,
@@ -369,9 +391,8 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    train = Train(args.thresh[0], args.num_feat[0], args.ep[0], args.opt[0], 
-            args.lr[0], args.w0[0], args.mini_batch[0], args.id[0], 
-            args.batch_norm[0])
+    train = Train(args.thresh[0], args.num_feat[0], args.ep[0], args.lr[0], 
+            args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0])
 
     if args.actions[0] == 'train':
         train.train(args.streams)

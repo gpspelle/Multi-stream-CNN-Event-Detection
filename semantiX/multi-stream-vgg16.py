@@ -37,10 +37,6 @@ if __name__ == '__main__':
             help='So far, spatial, temporal, pose and its combinations \
                   Usage: -streams spatial temporal',
             required=True)
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
-            help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
-            help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
     argp.add_argument("-weight", dest='weight', type=str, nargs='+', 
             help='Usage: -weight <path_to_your_weight_file>', required=True)
 
@@ -51,6 +47,8 @@ if __name__ == '__main__':
         exit(1)
     
     sliding_height = 10
+    x_dim = 224
+    y_dim = 224
     
     if 'temporal' in args.streams:
         
@@ -58,7 +56,10 @@ if __name__ == '__main__':
         # of the input format needs a channel 3, and for temporal we're using
         # 2 * sliding_height as channel. 
 
-        stack_input = (args.input_dim[0], args.input_dim[1], 2*sliding_height)
+
+        # TODO: CAN BE CHANGED, SEE multi-stream-resnet50.py
+
+        stack_input = (x_dim, y_dim, 2*sliding_height)
         tensor_stack_input = Input(shape=stack_input)
 
         # Block 1
@@ -117,6 +118,9 @@ if __name__ == '__main__':
         K.set_value(layer_dict[layer].kernel, w2)
         K.set_value(layer_dict[layer].bias, b2)
 
+        print(model.layers[1].get_config())
+        print(model.layers[2].get_config())
+
         print("Saving your temporal CNN as VGG16_temporal")
         model.save('VGG16_temporal')
 
@@ -138,7 +142,7 @@ if __name__ == '__main__':
             K.set_value(layer_dict[layer].kernel, w2)
             K.set_value(layer_dict[layer].bias, b2)
 
-        input = Input(shape=(args.input_dim[0], args.input_dim[1], 3),
+        input = Input(shape=(x_dim, y_dim, 3),
                         name='pose_input')
 
         output_vgg16 = model(input)
@@ -161,6 +165,8 @@ if __name__ == '__main__':
         # we need to apply and the current format of the data stored in h5
         #model.load_weights(args.weight[0], by_name=True)
 
+        print(model.layers[1].get_config())
+        print(model.layers[2].get_config())
         print("Saving your pose-estimation CNN as VGG16_pose")
         model.save('VGG16_pose')
     
@@ -182,7 +188,7 @@ if __name__ == '__main__':
             K.set_value(layer_dict[layer].kernel, w2)
             K.set_value(layer_dict[layer].bias, b2)
         
-        input = Input(shape=(args.input_dim[0], args.input_dim[1], 3),
+        input = Input(shape=(x_dim, y_dim, 3),
                         name='pose_input')
 
         output_vgg16 = model(input)

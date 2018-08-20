@@ -59,6 +59,7 @@ class Fextractor:
 
         self.get_dirs(data_folder)
 
+        print("### Model loading", flush=True)
         extractor_model = load_model(model, custom_objects={'Scale': Scale})
         
         features_file = 'temporal_features_' + self.id  + '.h5'
@@ -124,6 +125,7 @@ class Fextractor:
 
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
+        print("### Creating h5 files", flush=True)
         h5features = h5py.File(features_file,'w')
         h5labels = h5py.File(labels_file,'w')
         h5samples = h5py.File(samples_file, 'w')
@@ -145,7 +147,9 @@ class Fextractor:
         cont = 0
         number = 0
         
+        print("### Extracting Features", flush=True)
         for folder, dir, classe in zip(self.folders, dirs, self.class_value):
+            self.update_progress(cont/self.nb_total_frames)
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
             self.x_images.sort()
             self.y_images = glob.glob(folder + '/flow_y*.jpg')
@@ -255,6 +259,9 @@ class Fextractor:
         h5labels.close()
         h5samples.close()
         h5num_classes.close()
+
+    def update_progress(self, workdone):
+            print("\rProgress: [{0:50s}] {1:.1f}%".format('#' * int(workdone * 50), workdone*100), end="", flush=True)
 
     def get_media_optflow(self, label_values, i, sliding_height):
         soma = 0

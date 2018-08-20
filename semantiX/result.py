@@ -83,23 +83,32 @@ class Result:
         fn = cm[0][1]
         fp = cm[1][0]
         tn = cm[1][1]
-        tpr = tp/float(tp+fn)
-        fpr = fp/float(fp+tn)
-        fnr = fn/float(fn+tp)
-        tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
-        recall = tp/float(tp+fn)
-        specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
-        accuracy = accuracy_score(truth, predicted)
 
-        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-        print('Sensitivity/Recall: {}'.format(recall))
-        print('Specificity: {}'.format(specificity))
-        print('Precision: {}'.format(precision))
-        print('F1-measure: {}'.format(f1))
-        print('Accuracy: {}'.format(accuracy))
+        if tp+fn == 0 or fp + tn == 0 or tn + fp == 0 or tp + fp == 0 or tp + fn == 0 or tn + fp == 0:
+            print("### Zero division error calculating metrics ###")
+            accuracy = accuracy_score(truth, predicted)
+
+            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+            print('Accuracy: {}'.format(accuracy))
+        else:
+            tpr = tp/float(tp+fn)
+            fpr = fp/float(fp+tn)
+            fnr = fn/float(fn+tp)
+            tnr = tn/float(tn+fp)
+            precision = tp/float(tp+fp)
+            recall = tp/float(tp+fn)
+            specificity = tn/float(tn+fp)
+            f1 = 2*float(precision*recall)/float(precision+recall)
+
+            accuracy = accuracy_score(truth, predicted)
+            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+            print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+            print('Sensitivity/Recall: {}'.format(recall))
+            print('Specificity: {}'.format(specificity))
+            print('Precision: {}'.format(precision))
+            print('F1-measure: {}'.format(f1))
+            print('Accuracy: {}'.format(accuracy))
+
 
     def result(self, streams):
 
