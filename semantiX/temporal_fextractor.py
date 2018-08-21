@@ -37,9 +37,9 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, classes, num_features, x_size, y_size, id):
+    def __init__(self, classes, id):
 
-        self.num_features = num_features
+        self.num_features = 4096
         self.folders = []
         
         self.classes = classes
@@ -49,8 +49,8 @@ class Fextractor:
         self.class_value = []
         self.x_images = []
         self.y_images = []
-        self.x_size = x_size
-        self.y_size = y_size
+        self.x_size = 224
+        self.y_size = 224
         self.id = id
         # Total amount of stacks with sliding window=num_images-sliding_height+1
         self.nb_total_stacks = 0
@@ -149,7 +149,7 @@ class Fextractor:
         
         print("### Extracting Features", flush=True)
         for folder, dir, classe in zip(self.folders, dirs, self.class_value):
-            self.update_progress(cont/self.nb_total_frames)
+            self.update_progress(cont/self.nb_total_stacks)
             self.x_images = glob.glob(folder + '/flow_x*.jpg')
             self.x_images.sort()
             self.y_images = glob.glob(folder + '/flow_y*.jpg')
@@ -299,10 +299,6 @@ if __name__ == '__main__':
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
-            help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
-            help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
     argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
             help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
             required=True)
@@ -315,8 +311,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    fextractor = Fextractor(args.classes, args.num_features[0], 
-                args.input_dim[0], args.input_dim[1], args.id[0])
+    fextractor = Fextractor(args.classes, args.id[0])
     fextractor.extract(args.cnn_arch[0], args.data_folder[0])
 
 '''

@@ -37,11 +37,11 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, classes, num_features, x_size, y_size, id):
+    def __init__(self, classes, id):
 
         self.classes = classes
 
-        self.num_features = num_features
+        self.num_features = 4096
         self.folders = []
 
         self.classes_dirs = []
@@ -51,8 +51,8 @@ class Fextractor:
         self.class_value = []
 
         self.frames = []
-        self.x_size = x_size
-        self.y_size = y_size
+        self.x_size = 224
+        self.y_size = 224
         self.id = id
         self.nb_total_frames = 0
 
@@ -216,10 +216,6 @@ if __name__ == '__main__':
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-num_feat", dest='num_features', type=int, nargs=1,
-            help='Usage: -num_feat <size_of_features_array>', required=True)
-    argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
-            help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
     argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
             help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
             required=True)
@@ -232,8 +228,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    fextractor = Fextractor(args.classes, args.num_features[0], 
-                args.input_dim[0], args.input_dim[1], args.id[0])
+    fextractor = Fextractor(args.classes, args.id[0])
     fextractor.extract(args.cnn_arch[0], args.data_folder[0])
 
 '''
