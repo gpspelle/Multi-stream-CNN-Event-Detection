@@ -98,6 +98,13 @@ class Fextractor:
         dirs = []
 
         for c in range(len(self.classes)):
+
+            if c != 'Falls' or c != 'NotFalls':
+                print("Sorry. Classes possibles are Falls and NotFalls, it's
+                    hardcoded and will be expanded really soon. It's being
+                    used inside Extracting Features for, setting label value")
+                exit(1)
+
             for dir in self.classes_dirs[c]: 
                 self.frames = glob.glob(data_folder + self.classes[c] + '/' + 
                               dir + '/frame_*.jpg')
@@ -137,8 +144,15 @@ class Fextractor:
             self.update_progress(cont/self.nb_total_frames)
             self.frames = glob.glob(folder + '/frame_*.jpg')
             self.frames.sort()
-            label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
-            label_values = np.load(label[0])
+
+            label = -1
+            if classe = 'Falls':
+                label = 0
+            else:
+                label = 1
+
+            #label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
+            #label_values = np.load(label[0])
             
             nb_frames = len(self.frames)
 
@@ -155,7 +169,8 @@ class Fextractor:
                     frame = next(iterr)
                     frame = cv2.imread(frame)
                     predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
-                    truth[i] = label_values[i+fraction*amount_frames]
+                    #truth[i] = label_values[i+fraction*amount_frames]
+                    truth[i] = label
 
                 dataset_features[cont:cont+amount_frames,:] = predictions
                 dataset_labels[cont:cont+amount_frames,:] = truth
@@ -173,7 +188,8 @@ class Fextractor:
                 frame = cv2.imread(frame)
                 predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
                 # todo: this 100 value is related to initial amount_frames
-                truth[i] = label_values[fraction_frames * 100 + i]
+                #truth[i] = label_values[fraction_frames * 100 + i]
+                truth[i] = label
 
             dataset_features[cont:cont+amount_frames,:] = predictions
             dataset_labels[cont:cont+amount_frames,:] = truth

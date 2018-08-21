@@ -113,6 +113,13 @@ class Fextractor:
         dirs = []
 
         for c in range(len(self.classes)):
+
+            if c != 'Falls' or c != 'NotFalls':
+                print("Sorry. Classes possibles are Falls and NotFalls, it's
+                    hardcoded and will be expanded really soon. It's being
+                    used inside Extracting Features for, setting label value")
+                exit(1)
+
             for dir in self.classes_dirs[c]: 
                 self.frames = glob.glob(data_folder + self.classes[c] + '/' + 
                               dir + '/flow_x*.jpg')
@@ -154,8 +161,16 @@ class Fextractor:
             self.x_images.sort()
             self.y_images = glob.glob(folder + '/flow_y*.jpg')
             self.y_images.sort()
-            label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
-            label_values = np.load(label[0])
+
+            label = -1
+            if classe = 'Falls':
+                label = 0
+            else:
+                label = 1
+
+
+            #label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
+            #label_values = np.load(label[0])
 
             nb_stacks = len(self.x_images) - sliding_height + 1
 
@@ -204,8 +219,9 @@ class Fextractor:
                     prediction = extractor_model.predict(
                                                 np.expand_dims(flow[i, ...], 0))
                     predictions[i, ...] = prediction
-                    truth[i] = self.get_media_optflow(label_values, i+(fraction*amount_stacks), sliding_height)
-
+                    #truth[i] = self.get_media_optflow(label_values, i+(fraction*amount_stacks), sliding_height)
+                    truth[i] = label
+                    
                 dataset_features[cont:cont+amount_stacks,:] = predictions
                 dataset_labels[cont:cont+amount_stacks,:] = truth
                 cont += amount_stacks
@@ -247,7 +263,8 @@ class Fextractor:
                                                                              0))
                 predictions[i, ...] = prediction
                 # todo: this 100 value is related to initial amount_stacks
-                truth[i] = self.get_media_optflow(label_values, fraction_stacks* 100 + i, sliding_height)
+                #truth[i] = self.get_media_optflow(label_values, fraction_stacks* 100 + i, sliding_height)
+                truth[i] = label
 
             dataset_features[cont:cont+amount_stacks,:] = predictions
             dataset_labels[cont:cont+amount_stacks,:] = truth
