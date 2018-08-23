@@ -1,5 +1,7 @@
 import argparse
+import math
 import sys
+import random
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -60,6 +62,7 @@ class Train:
 
         self.threshold = threshold
         self.num_features = 4096
+        self.sliding_height = 10
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.weight_0 = weight_0
@@ -139,7 +142,7 @@ class Train:
 
                 # ==================== EVALUATION ======================== 
                 predicted = self.classifier.predict(np.asarray(X2))
-                self.evaluate(predicted, X2, _y2, sensitivities, 
+                self.evaluate(predicted, _y2, sensitivities, 
                 specificities, fars, mdrs, accuracies)
                 
             print('5-FOLD CROSS-VALIDATION RESULTS ===================')
@@ -152,9 +155,86 @@ class Train:
             print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), 
                                                      np.std(accuracies)))
 
+    def video_random_split(self, stream, test_size):
+        random.seed(42)
+        f = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
+        all_f = np.asarray(f[self.features_key])
+        s = h5py.File(stream + '_samples_'+ self.id + '.h5', 'r')
+        all_s = np.asarray(s[self.samples_key])
+        l = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
+        all_l = np.asarray(l[self.labels_key])
+        num = h5py.File(stream + '_num_' + self.id + '.h5', 'r')
+        all_num = np.asarray(num[self.num_key])
+
+
+        test_videos = [ [] for x in range(len(all_num)) ]
+        train_videos = [ [] for x in range(len(all_num)) ]
+
+        start = 0
+
+        for i in range(len(all_num)):
+            for j in range(int(all_num[i][0] * test_size)):
+
+                x = random.randint(start, start + all_num[i][0]-1)
+                while x in test_videos[i]:
+                    x = random.randint(start, start + all_num[i][0]-1)
+
+                test_videos[i].append(x)
+
+            for j in range(start, start + all_num[i][0]):
+                if j not in test_videos[i]:
+                    train_videos[i].append(j)
+            start += all_num[i][0]
+
+        for video in range(1, len(all_s)):
+            all_s[video] += all_s[video-1]
+
+        X_train = []
+        X_test = []
+        y_train = []
+        y_test = []
+
+        # For every class
+        c_test = 0
+        c_train = 0
+        for c in range(len(all_num)):
+
+            # Pass through test_videos from c-th class
+            for video in test_videos[c]:
+                if video != 0:
+                    tam = len(list(range(all_s[video-1][0], all_s[video][0])))
+                    X_test[c_test:c_test+tam] = all_f[all_s[video-1][0]:all_s[video][0]]
+                    y_test[c_test:c_test+tam] = all_l[all_s[video-1][0]:all_s[video][0]]
+                else:
+                    tam = len(list(range(0, all_s[video][0])))
+                    X_test[c_test:c_test+tam] = all_f[0:all_s[video][0]]
+                    y_test[c_test:c_test+tam] = all_l[0:all_s[video][0]]
+                c_test+=tam
+                
+            # Pass through traint_videos from c-th class
+            for video in train_videos[c]:
+                if video != 0:
+                    tam = len(list(range(all_s[video-1][0], all_s[video][0])))
+                    X_train[c_train:c_train+tam] = all_f[all_s[video-1][0]:all_s[video][0]]
+                    y_train[c_train:c_train+tam] = all_l[all_s[video-1][0]:all_s[video][0]]
+                else:
+                    tam = len(list(range(0, all_s[video][0])))
+                    X_train[c_train:c_train+tam] = all_f[0:all_s[video][0]]
+                    y_train[c_train:c_train+tam] = all_l[0:all_s[video][0]]
+                c_train+=tam
+
+        f.close()
+        l.close()
+        num.close()
+        return np.asarray(X_train), np.asarray(X_test), np.asarray(y_train), np.asarray(y_test), train_videos, test_videos 
+
     def train(self, streams):
    
         VGG16 = True
+        predicteds = []
+        temporal = 'temporal' in streams
+        len_RGB = 0
+        len_STACK = 0
         for stream in streams:
 
             if VGG16:
@@ -164,8 +244,12 @@ class Train:
 
             h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
             h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
+            h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
+            h5num = h5py.File(stream + '_num_' + self.id + '.h5', 'r')
             self.all_features = h5features[self.features_key]
             self.all_labels = np.asarray(h5labels[self.labels_key])
+            self.all_samples = np.asarray(h5samples[self.samples_key])
+            self.all_num = np.asarray(h5num[self.num_key])
 
             sensitivities = []
             specificities = []
@@ -173,8 +257,11 @@ class Train:
             mdrs = []
             accuracies = []
 
-            X_train, X_test, y_train, y_test = train_test_split(np.asarray(self.all_features), 
-                                     np.asarray(self.all_labels), test_size=0.2)
+            test_size = 0.2
+
+            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split(stream, test_size)
+            #X_train, X_test, y_train, y_test = train_test_split(np.asarray(self.all_features), 
+            #                        np.asarray(self.all_labels), test_size=0.2)
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different weight
@@ -196,13 +283,73 @@ class Train:
                                history.history)
 
             self.classifier.save(stream + '_classifier_' + self.id + '.h5')
-
-            # ==================== EVALUATION ========================        
             predicted = self.classifier.predict(np.asarray(X_test))
-            self.evaluate(predicted, X_test, y_test, sensitivities, 
-            specificities, fars, mdrs, accuracies)
 
-    def evaluate(self, predicted, X2, _y2, sensitivities, 
+            if stream == 'spatial' or stream == 'pose':
+                len_RGB = len(y_test)
+
+                print('EVALUATE WITH %s' % (stream))
+                
+                # ==================== EVALUATION ======================== 
+                self.evaluate(predicted, y_test, sensitivities, 
+                specificities, fars, mdrs, accuracies)
+
+                if not temporal:
+                    Truth = y_test
+                    predicteds.append(predicted)
+                else:    
+                    Truth = y_test
+                    pos = 0
+                    index = []
+                    for c in range(len(self.all_num)):  
+                        for x in test_videos[c]:
+                            num_samples = self.all_samples[x][0]
+                            index += list(range(pos + num_samples - self.sliding_height, pos + num_samples))
+                            pos+=num_samples
+                    Truth = np.delete(Truth, index)
+                    clean_predicted = np.delete(predicted, index)
+                    predicteds.append(clean_predicted)
+
+            elif stream == 'temporal':
+
+                # Checking if temporal is the only stream
+                if len(streams) == 1:
+                    Truth = y_test
+
+                len_STACK = len(y_test)
+                predicteds.append(np.copy(predicted)) 
+                print('EVALUATE WITH %s' % (stream))
+                
+                # ==================== EVALUATION ======================== 
+                self.evaluate(predicted, y_test, sensitivities, 
+                specificities, fars, mdrs, accuracies)
+
+        if temporal:
+            avg_predicted = np.zeros(len_STACK, dtype=np.float)
+            for j in range(len_STACK):
+                for i in range(len(streams)):
+                    avg_predicted[j] += 1* predicteds[i][j] 
+
+                avg_predicted[j] /= (len(streams))
+
+        else:
+            avg_predicted = np.zeros(len_RGB, dtype=np.float)
+            for j in range(len_RGB):
+                for i in range(len(streams)):
+                    avg_predicted[j] += 1* predicteds[i][j] 
+
+                avg_predicted[j] /= (len(streams))
+
+        sensitivities = []
+        specificities = []
+        fars = []
+        mdrs = []
+        accuracies = []
+        print('EVALUATE WITH average')
+        self.evaluate(avg_predicted, Truth, sensitivities,
+                specificities, fars, mdrs, accuracies)
+
+    def evaluate(self, predicted, _y2, sensitivities, 
     specificities, fars, mdrs, accuracies):
         for i in range(len(predicted)):
             if predicted[i] < self.threshold:

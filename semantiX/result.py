@@ -112,15 +112,10 @@ class Result:
 
     def result(self, streams):
 
-        # todo: so far, a stack is being compared with the value of the it's
-        # first frame, a better approach would be to comparate it with the 
-        # average value from the frames that belong to a stack
         predicteds = []
-
         temporal = 'temporal' in streams
         len_RGB = 0
         len_STACK = 0
-        full_predicteds = []
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
 
@@ -132,7 +127,6 @@ class Result:
                 print('EVALUATE WITH %s' % (stream))
                 
                 self.evaluate(Y, predicted)
-                full_predicteds.append(predicted)
 
                 if not temporal:
                     Truth = Y 
@@ -152,6 +146,11 @@ class Result:
                     predicteds.append(clean_predicted)
 
             elif stream == 'temporal':
+
+                # Checking if temporal is the only stream
+                if len(streams) == 1:
+                    Truth = Y
+
                 len_STACK = len(Y)
                 predicteds.append(np.copy(predicted)) 
                 print('EVALUATE WITH %s' % (stream))
