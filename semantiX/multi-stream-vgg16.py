@@ -46,6 +46,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
     
+    num_features = 4096
     sliding_height = 10
     x_dim = 224
     y_dim = 224
@@ -91,7 +92,7 @@ if __name__ == '__main__':
         x = MaxPooling2D((2, 2), strides=(2, 2), name='block5_pool')(x)
 
         x = Flatten(name='flatten')(x)
-        x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
+        x = Dense(num_features, activation='relu', name='fc6')(x)
 
         model = Model(tensor_stack_input, x, name='VGG16_temporal')
 
@@ -148,7 +149,7 @@ if __name__ == '__main__':
         output_vgg16 = model(input)
 
         x = Flatten(name='flatten')(output_vgg16)
-        x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
+        x = Dense(num_features, activation='relu', name='fc6')(x)
 
         model = Model(inputs=input, outputs=x, name='VGG16_pose')
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
@@ -194,7 +195,7 @@ if __name__ == '__main__':
         output_vgg16 = model(input)
 
         x = Flatten(name='flatten')(output_vgg16)
-        x = Dense(args.num_features[0], activation='relu', name='fc6')(x)
+        x = Dense(num_features, activation='relu', name='fc6')(x)
 
         model = Model(inputs=input, outputs=x, name='VGG16_spatial')
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
