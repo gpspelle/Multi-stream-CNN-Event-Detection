@@ -1,7 +1,5 @@
 import keras
-from resnet152 import Scale
 from keras.models import load_model
-from keras.utils.generic_utils import CustomObjectScope 
 import math
 import sys
 import argparse
@@ -60,7 +58,7 @@ class Fextractor:
         self.get_dirs(data_folder)
 
         print("### Model loading", flush=True)
-        extractor_model = load_model(model, custom_objects={'Scale': Scale})
+        extractor_model = load_model(model)
         
         features_file = 'temporal_features_' + self.id  + '.h5'
         labels_file = 'temporal_labels_' + self.id  + '.h5'
@@ -114,9 +112,9 @@ class Fextractor:
 
         for c in range(len(self.classes)):
 
-            if c != 'Falls' or c != 'NotFalls':
-                print("Sorry. Classes possibles are Falls and NotFalls, it's
-                    hardcoded and will be expanded really soon. It's being
+            if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
+                print("Sorry. Classes possibles are Falls and NotFalls, its \
+                    hardcoded and will be expanded really soon. Its being \
                     used inside Extracting Features for, setting label value")
                 exit(1)
 
@@ -163,7 +161,7 @@ class Fextractor:
             self.y_images.sort()
 
             label = -1
-            if classe = 'Falls':
+            if classe == 'Falls':
                 label = 0
             else:
                 label = 1
