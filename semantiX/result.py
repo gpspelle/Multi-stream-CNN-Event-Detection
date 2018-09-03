@@ -1,6 +1,7 @@
 import sys
 import argparse
 from sklearn.model_selection import KFold
+from sklearn.externals import joblib
 import numpy as np
 import h5py
 from sklearn.metrics import confusion_matrix, accuracy_score
@@ -67,6 +68,16 @@ class Result:
 
         return self.all_features, self.all_labels, predicted
 
+    def evaluate_threshold(self, truth, predicted):
+
+        for i in range(len(predicted)):
+            if predicted[i] < self.threshold:
+                predicted[i] = 0
+            else:
+                predicted[i] = 1
+
+        self.evaluate(truth, predicted)
+
     def evaluate(self, truth, predicted):
         for i in range(len(predicted)):
             if predicted[i] < self.threshold:
@@ -126,7 +137,7 @@ class Result:
 
                 print('EVALUATE WITH %s' % (stream))
                 
-                self.evaluate(Y, predicted)
+                self.evaluate_threshold(Y, predicted)
 
                 if not temporal:
                     Truth = Y 
@@ -155,7 +166,7 @@ class Result:
                 predicteds.append(np.copy(predicted)) 
                 print('EVALUATE WITH %s' % (stream))
                 
-                self.evaluate(Y, predicted)
+                self.evaluate_threshold(Y, predicted)
 
         if temporal:
             avg_predicted = np.zeros(len_STACK, dtype=np.float)
@@ -173,7 +184,15 @@ class Result:
 
                 avg_predicted[j] /= (len(streams))
 
-        print('EVALUATE WITH average')
+        print('EVALUATE WITH average threshold')
+        self.evaluate_threshold(Truth, np.array(avg_predicted, copy=True))
+
+        clf = joblib.load('svm.pkl')
+
+        print('EVALUATE WITH average svm')
+        for i in range(len(avg_predicted)):
+            avg_predicted[i] = clf.predict(avg_predicted[i])
+
         self.evaluate(Truth, avg_predicted)
 
         if temporal:

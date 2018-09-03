@@ -4,6 +4,9 @@ import sys
 import random
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
+from sklearn import svm
+import pickle
+from sklearn.externals import joblib
 import numpy as np
 from numpy.random import seed
 seed(1)
@@ -142,7 +145,7 @@ class Train:
 
                 # ==================== EVALUATION ======================== 
                 predicted = self.classifier.predict(np.asarray(X2))
-                self.evaluate(predicted, _y2, sensitivities, 
+                self.evaluate_threshold(predicted, _y2, sensitivities, 
                 specificities, fars, mdrs, accuracies)
                 
             print('5-FOLD CROSS-VALIDATION RESULTS ===================')
@@ -232,9 +235,12 @@ class Train:
    
         VGG16 = True
         predicteds = []
+        train_predicteds = []
         temporal = 'temporal' in streams
         len_RGB = 0
+        train_len_RGB = 0
         len_STACK = 0
+        train_len_STACK = 0
         for stream in streams:
 
             if VGG16:
@@ -276,7 +282,7 @@ class Train:
                 history = self.classifier.fit(X_train, y_train, 
                         validation_data=(X_test, y_test), 
                         batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                        shuffle='batch', class_weight=class_weight)
+                        shuffle=True, class_weight=class_weight, verbose=2)
 
             exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
             self.plot_training_info(exp, ['accuracy', 'loss'], True, 
@@ -284,31 +290,43 @@ class Train:
 
             self.classifier.save(stream + '_classifier_' + self.id + '.h5')
             predicted = self.classifier.predict(np.asarray(X_test))
+            train_predicted = self.classifier.predict(np.asarray(X_train))
 
             if stream == 'spatial' or stream == 'pose':
                 len_RGB = len(y_test)
+                train_len_RGB = len(y_train)
 
                 print('EVALUATE WITH %s' % (stream))
-                
+
                 # ==================== EVALUATION ======================== 
-                self.evaluate(predicted, y_test, sensitivities, 
+                self.evaluate_threshold(predicted, y_test, sensitivities, 
                 specificities, fars, mdrs, accuracies)
 
                 if not temporal:
                     Truth = y_test
                     predicteds.append(predicted)
+                    train_predicteds.append(train_predicted)
                 else:    
                     Truth = y_test
                     pos = 0
+                    train_pos = 0
                     index = []
+                    train_index = []
                     for c in range(len(self.all_num)):  
                         for x in test_videos[c]:
                             num_samples = self.all_samples[x][0]
                             index += list(range(pos + num_samples - self.sliding_height, pos + num_samples))
                             pos+=num_samples
+                        for x in train_videos[c]:
+                            num_samples = self.all_samples[x][0]
+                            train_index += list(range(train_pos + num_samples - self.sliding_height, train_pos + num_samples))
+                            train_pos+=num_samples
+
                     Truth = np.delete(Truth, index)
                     clean_predicted = np.delete(predicted, index)
+                    train_clean_predicted = np.delete(train_predicted, train_index)
                     predicteds.append(clean_predicted)
+                    train_predicteds.append(train_clean_predicted)
 
             elif stream == 'temporal':
 
@@ -317,46 +335,87 @@ class Train:
                     Truth = y_test
 
                 len_STACK = len(y_test)
-                predicteds.append(np.copy(predicted)) 
+                train_len_STACK = len(y_train)
                 print('EVALUATE WITH %s' % (stream))
-                
-                # ==================== EVALUATION ======================== 
-                self.evaluate(predicted, y_test, sensitivities, 
-                specificities, fars, mdrs, accuracies)
 
+                predicteds.append(np.copy(predicted)) 
+                train_predicteds.append(np.copy(train_predicted)) 
+                # ==================== EVALUATION ======================== 
+                self.evaluate_threshold(predicted, y_test, sensitivities, 
+                specificities, fars, mdrs, accuracies)
+                
         if temporal:
+            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('temporal', test_size)
             avg_predicted = np.zeros(len_STACK, dtype=np.float)
+            train_avg_predicted = np.zeros(train_len_STACK, dtype=np.float)
+
             for j in range(len_STACK):
                 for i in range(len(streams)):
-                    avg_predicted[j] += 1* predicteds[i][j] 
+                    avg_predicted[j] += predicteds[i][j] 
 
                 avg_predicted[j] /= (len(streams))
 
+            for j in range(train_len_STACK):
+                for i in range(len(streams)):
+                    train_avg_predicted[j] += train_predicteds[i][j] 
+
+                train_avg_predicted[j] /= (len(streams))
+             
         else:
             avg_predicted = np.zeros(len_RGB, dtype=np.float)
+            train_avg_predicted = np.zeros(train_len_RGB, dtype=np.float)
+            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('pose', test_size)
             for j in range(len_RGB):
                 for i in range(len(streams)):
-                    avg_predicted[j] += 1* predicteds[i][j] 
+                    avg_predicted[j] += predicteds[i][j] 
 
                 avg_predicted[j] /= (len(streams))
 
+            for j in range(train_len_RGB):
+                for i in range(len(streams)):
+                    train_avg_predicted[j] += train_predicteds[i][j] 
+
+                train_avg_predicted[j] /= (len(streams))
+        
+        print('EVALUATE WITH average and threshold')
         sensitivities = []
         specificities = []
         fars = []
         mdrs = []
         accuracies = []
-        print('EVALUATE WITH average')
+        self.evaluate_threshold(np.array(avg_predicted, copy=True), Truth, sensitivities,
+                specificities, fars, mdrs, accuracies)
+
+        clf = svm.SVC()                                                                 
+        clf.fit(train_avg_predicted.reshape(-1, 1), y_train.ravel())
+        for i in range(len(avg_predicted)):
+            avg_predicted[i] = clf.predict(avg_predicted[i])
+
+        joblib.dump(clf, 'svm.pkl') 
+        sensitivities = []
+        specificities = []
+        fars = []
+        mdrs = []
+        accuracies = []
+        print('EVALUATE WITH average and SVM')
         self.evaluate(avg_predicted, Truth, sensitivities,
                 specificities, fars, mdrs, accuracies)
 
+    def evaluate_threshold(self, predicted, _y2, sensitivities, specificities,
+    fars, mdrs, accuracies):
+
+       for i in range(len(predicted)):
+           if predicted[i] < self.threshold:
+               predicted[i] = 0
+           else:
+               predicted[i] = 1
+       #  Array of predictions 0/1
+
+       self.evaluate(predicted, _y2, sensitivities, specificities, fars, mdrs, accuracies)
+
     def evaluate(self, predicted, _y2, sensitivities, 
     specificities, fars, mdrs, accuracies):
-        for i in range(len(predicted)):
-            if predicted[i] < self.threshold:
-                predicted[i] = 0
-            else:
-                predicted[i] = 1
-        # Array of predictions 0/1
+
         predicted = np.asarray(predicted).astype(int)
         # Compute metrics and print them
         cm = confusion_matrix(_y2, predicted,labels=[0,1])
