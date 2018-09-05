@@ -32,6 +32,7 @@ if __name__ == '__main__':
     print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
     print("***********************************************************",
             file=sys.stderr)
+    print("First weight file is STACK and second is RGB", file=sys.stderr)
     argp = argparse.ArgumentParser(description='Do architecture tasks')
     argp.add_argument("-streams", dest='streams', type=str, nargs='+',
             help='So far, spatial, temporal, pose and its combinations \
