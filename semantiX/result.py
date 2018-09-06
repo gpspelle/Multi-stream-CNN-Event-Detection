@@ -182,16 +182,10 @@ class Result:
         self.evaluate_threshold(Truth, np.array(cont_predicteds, copy=True))
 
         clf = joblib.load('svm_cont.pkl')
-
-        print(clf)
-        print(clf.predict([[0, 0]]))
         print('EVALUATE WITH continuous values and svm')
-        print(cont_predicteds)
-        print(predicteds)
         for i in range(len(cont_predicteds)):
             cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
 
-        print(cont_predicteds)
         self.evaluate(Truth, cont_predicteds)
 
         if temporal:
@@ -281,6 +275,7 @@ if __name__ == '__main__':
 
     result = Result(args.classes, args.thresh[0], args.fid[0], args.cid[0])
 
+    args.streams.sort()
     result.result(args.streams)
 
 '''

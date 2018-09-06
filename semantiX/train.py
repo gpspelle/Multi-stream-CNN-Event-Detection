@@ -405,6 +405,8 @@ class Train:
         fars = []
         mdrs = []
         accuracies = []
+        print(clf_continuous.support_)
+        exit(1)
         print('EVALUATE WITH continuous values and SVM')
         self.evaluate(avg_continuous, Truth, sensitivities,
                 specificities, fars, mdrs, accuracies)
@@ -622,6 +624,7 @@ if __name__ == '__main__':
     train = Train(args.thresh[0], args.ep[0], args.lr[0], 
             args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0])
 
+    args.streams.sort()
     if args.actions[0] == 'train':
         train.train(args.streams)
     elif args.actions[0] == 'cross-train':

@@ -193,6 +193,7 @@ if __name__ == '__main__':
     subt = Subtitle(args.data[0], args.classes, args.thresh[0], args.fid[0], 
                     args.cid[0])
 
+    args.streams.sort()
     subt.create_subtitle(args.streams)
 
 '''
