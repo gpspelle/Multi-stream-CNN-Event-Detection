@@ -289,8 +289,8 @@ class Train:
                                history.history)
 
             self.classifier.save(stream + '_classifier_' + self.id + '.h5')
-            predicted = self.classifier.predict(np.asarray(X_test))
-            train_predicted = self.classifier.predict(np.asarray(X_train))
+            predicted = np.asarray(self.classifier.predict(np.asarray(X_test)))
+            train_predicted = np.asarray(self.classifier.predict(np.asarray(X_train)))
 
             if stream == 'spatial' or stream == 'pose':
                 len_RGB = len(y_test)
@@ -348,6 +348,7 @@ class Train:
             X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('temporal', test_size)
             avg_predicted = np.zeros(len_STACK, dtype=np.float)
             train_avg_predicted = np.zeros(train_len_STACK, dtype=np.float)
+            clf_train_predicteds = np.zeros( (train_len_STACK, len(streams)) )
 
             for j in range(len_STACK):
                 for i in range(len(streams)):
@@ -361,10 +362,13 @@ class Train:
 
                 train_avg_predicted[j] /= (len(streams))
              
+            for j in range(train_len_STACK):
+                clf_train_predicteds[j] = [item[j] for item in train_predicteds]
         else:
+            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('pose', test_size)
             avg_predicted = np.zeros(len_RGB, dtype=np.float)
             train_avg_predicted = np.zeros(train_len_RGB, dtype=np.float)
-            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('pose', test_size)
+            clf_train_predicteds = np.zeros( (train_len_RGB, len(streams)) )
             for j in range(len_RGB):
                 for i in range(len(streams)):
                     avg_predicted[j] += predicteds[i][j] 
@@ -376,22 +380,41 @@ class Train:
                     train_avg_predicted[j] += train_predicteds[i][j] 
 
                 train_avg_predicted[j] /= (len(streams))
+
+            for j in range(train_len_RGB):
+                clf_train_predicteds[j] = [item[j] for item in train_predicteds]
         
-        print('EVALUATE WITH average and threshold')
         sensitivities = []
         specificities = []
         fars = []
         mdrs = []
         accuracies = []
+        print('EVALUATE WITH average and threshold')
         self.evaluate_threshold(np.array(avg_predicted, copy=True), Truth, sensitivities,
                 specificities, fars, mdrs, accuracies)
 
-        clf = svm.SVC()                                                                 
-        clf.fit(train_avg_predicted.reshape(-1, 1), y_train.ravel())
-        for i in range(len(avg_predicted)):
-            avg_predicted[i] = clf.predict(avg_predicted[i])
+        clf_continuous = svm.SVC()
 
-        joblib.dump(clf, 'svm.pkl') 
+        clf_continuous.fit(clf_train_predicteds, y_train.ravel())
+        avg_continuous = np.array(avg_predicted, copy=True)
+        for i in range(len(avg_continuous)):
+            avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+
+        sensitivities = []
+        specificities = []
+        fars = []
+        mdrs = []
+        accuracies = []
+        print('EVALUATE WITH continuous values and SVM')
+        self.evaluate(avg_continuous, Truth, sensitivities,
+                specificities, fars, mdrs, accuracies)
+
+        clf_avg = svm.SVC()                                                                 
+        clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train.ravel())
+        for i in range(len(avg_predicted)):
+            avg_predicted[i] = clf_avg.predict(avg_predicted[i])
+
+        joblib.dump(clf_avg, 'svm_avg.pkl') 
         sensitivities = []
         specificities = []
         fars = []

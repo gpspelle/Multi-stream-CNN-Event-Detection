@@ -120,8 +120,6 @@ if __name__ == '__main__':
         K.set_value(layer_dict[layer].kernel, w2)
         K.set_value(layer_dict[layer].bias, b2)
 
-        print(model.layers[1].get_config())
-        print(model.layers[2].get_config())
 
         print("Saving your temporal CNN as VGG16_temporal")
         model.save('VGG16_temporal')
@@ -167,8 +165,6 @@ if __name__ == '__main__':
         # we need to apply and the current format of the data stored in h5
         #model.load_weights(args.weight[0], by_name=True)
 
-        print(model.layers[1].get_config())
-        print(model.layers[2].get_config())
         print("Saving your pose-estimation CNN as VGG16_pose")
         model.save('VGG16_pose')
     
