@@ -79,12 +79,6 @@ class Result:
         self.evaluate(truth, predicted)
 
     def evaluate(self, truth, predicted):
-        for i in range(len(predicted)):
-            if predicted[i] < self.threshold:
-                predicted[i] = 0
-            else:
-                predicted[i] = 1
-
         # Array of predictions 0/1
         predicted = np.asarray(predicted).astype(int)
 
@@ -169,38 +163,43 @@ class Result:
                 self.evaluate_threshold(Y, predicted)
 
         if temporal:
-            avg_predicted = np.zeros(len_STACK, dtype=np.float)
+            cont_predicteds = np.zeros(len_STACK, dtype=np.float)
             for j in range(len_STACK):
                 for i in range(len(streams)):
-                    avg_predicted[j] += 1* predicteds[i][j] 
+                    cont_predicteds[j] += 1* predicteds[i][j] 
 
-                avg_predicted[j] /= (len(streams))
+                cont_predicteds[j] /= (len(streams))
 
         else:
-            avg_predicted = np.zeros(len_RGB, dtype=np.float)
+            cont_predicteds = np.zeros(len_RGB, dtype=np.float)
             for j in range(len_RGB):
                 for i in range(len(streams)):
-                    avg_predicted[j] += 1* predicteds[i][j] 
+                    cont_predicteds[j] += 1* predicteds[i][j] 
 
-                avg_predicted[j] /= (len(streams))
+                cont_predicteds[j] /= (len(streams))
 
         print('EVALUATE WITH average threshold')
-        self.evaluate_threshold(Truth, np.array(avg_predicted, copy=True))
+        self.evaluate_threshold(Truth, np.array(cont_predicteds, copy=True))
 
-        clf = joblib.load('svm.pkl')
+        clf = joblib.load('svm_cont.pkl')
 
-        print('EVALUATE WITH average svm')
-        for i in range(len(avg_predicted)):
-            avg_predicted[i] = clf.predict(avg_predicted[i])
+        print(clf)
+        print(clf.predict([[0, 0]]))
+        print('EVALUATE WITH continuous values and svm')
+        print(cont_predicteds)
+        print(predicteds)
+        for i in range(len(cont_predicteds)):
+            cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
 
-        self.evaluate(Truth, avg_predicted)
+        print(cont_predicteds)
+        self.evaluate(Truth, cont_predicteds)
 
         if temporal:
-            self.check_videos(Truth, avg_predicted, 'temporal')
+            self.check_videos(Truth, cont_predicteds, 'temporal')
         elif 'pose' in streams:
-            self.check_videos(Truth, avg_predicted, 'pose')
+            self.check_videos(Truth, cont_predicteds, 'pose')
         else:
-            self.check_videos(Truth, avg_predicted, 'spatial')
+            self.check_videos(Truth, cont_predicteds, 'spatial')
 
     def check_videos(self, _y2, predicted, stream):
         h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')

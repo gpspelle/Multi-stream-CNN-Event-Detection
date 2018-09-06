@@ -408,6 +408,7 @@ class Train:
         print('EVALUATE WITH continuous values and SVM')
         self.evaluate(avg_continuous, Truth, sensitivities,
                 specificities, fars, mdrs, accuracies)
+        joblib.dump(clf_continuous, 'svm_cont.pkl') 
 
         clf_avg = svm.SVC()                                                                 
         clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train.ravel())
