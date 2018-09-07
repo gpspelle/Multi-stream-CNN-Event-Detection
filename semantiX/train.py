@@ -94,6 +94,7 @@ class Train:
 
         for fold in range(nsplits): 
             tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.train(streams)
+            gc.collect()
             f_tpr += tpr
             f_fpr += fpr
             f_fnr += fnr
@@ -122,7 +123,6 @@ class Train:
         print('Accuracy: {}'.format(f_accuracy))
 
     def video_random_split(self, stream, test_size):
-        random.seed(42)
         f = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
         all_f = np.asarray(f[self.features_key])
         s = h5py.File(stream + '_samples_'+ self.id + '.h5', 'r')
@@ -368,6 +368,8 @@ class Train:
 
         joblib.dump(clf_continuous, 'svm_cont.pkl') 
         print('EVALUATE WITH continuous values and SVM')
+        del self.classifier
+        gc.collect()
         return self.evaluate(avg_continuous, Truth)
 
     def evaluate_threshold(self, predicted, _y2):
@@ -562,6 +564,7 @@ if __name__ == '__main__':
             args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0])
 
     args.streams.sort()
+    random.seed(42)
     if args.actions[0] == 'train':
         train.train(args.streams)
     elif args.actions[0] == 'cross-train':
