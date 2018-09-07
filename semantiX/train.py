@@ -1,4 +1,5 @@
 import argparse
+import gc
 import math
 import sys
 import random
@@ -8,10 +9,9 @@ from sklearn import svm
 import pickle
 from sklearn.externals import joblib
 import numpy as np
-from numpy.random import seed
-seed(1)
 import h5py
 from sklearn.metrics import confusion_matrix, accuracy_score
+from keras import backend as K
 from keras.layers import Input, Activation, Dense, Dropout
 from keras.layers.normalization import BatchNormalization 
 from keras.optimizers import Adam
@@ -72,8 +72,6 @@ class Train:
         self.mini_batch_size = mini_batch_size
         self.batch_norm = batch_norm 
 
-        self.classifier = []
-
     def cross_train(self, streams, nsplits):
 
         f_tpr = 0
@@ -94,7 +92,7 @@ class Train:
 
         for fold in range(nsplits): 
             tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.train(streams)
-            gc.collect()
+            K.clear_session()
             f_tpr += tpr
             f_fpr += fpr
             f_fnr += fnr
@@ -115,6 +113,11 @@ class Train:
         f_f1 /= nsplits
         f_accuracy /= nsplits
         
+
+        print("***********************************************************")
+        print("             SEMANTIX - UNICAMP DATALAB 2018")
+        print("***********************************************************")
+        print("CROSS VALIDATION MEAN RESULTS: %d splits" % (nsplits))
         print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(f_tpr,f_tnr,f_fpr,f_fnr))   
         print('Sensitivity/Recall: {}'.format(f_recall))
         print('Specificity: {}'.format(f_specificity))
@@ -122,7 +125,9 @@ class Train:
         print('F1-measure: {}'.format(f_f1))
         print('Accuracy: {}'.format(f_accuracy))
 
-    def video_random_split(self, stream, test_size):
+    def video_random_split(self, stream, test_size, local_seed):
+
+        random.seed(local_seed)
         f = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
         all_f = np.asarray(f[self.features_key])
         s = h5py.File(stream + '_samples_'+ self.id + '.h5', 'r')
@@ -205,21 +210,24 @@ class Train:
         train_len_RGB = 0
         len_STACK = 0
         train_len_STACK = 0
+
+        # this local seed guarantee that all the streams will use the same videos
+        local_seed = random.randint(0, 10000)
         for stream in streams:
 
             if VGG16:
-                self.set_classifier_vgg16()
+                classifier = self.set_classifier_vgg16()
             else:
-                self.set_classifier_resnet50()
+                classifier = self.set_classifier_resnet50()
 
             h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
             h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
             h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
             h5num = h5py.File(stream + '_num_' + self.id + '.h5', 'r')
-            self.all_features = h5features[self.features_key]
-            self.all_labels = np.asarray(h5labels[self.labels_key])
-            self.all_samples = np.asarray(h5samples[self.samples_key])
-            self.all_num = np.asarray(h5num[self.num_key])
+            all_features = h5features[self.features_key]
+            all_labels = np.asarray(h5labels[self.labels_key])
+            all_samples = np.asarray(h5samples[self.samples_key])
+            all_num = np.asarray(h5num[self.num_key])
 
             sensitivities = []
             specificities = []
@@ -229,21 +237,19 @@ class Train:
 
             test_size = 0.2
 
-            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split(stream, test_size)
-            #X_train, X_test, y_train, y_test = train_test_split(np.asarray(self.all_features), 
-            #                        np.asarray(self.all_labels), test_size=0.2)
+            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split(stream, test_size, local_seed)
 
             # ==================== TRAINING ========================     
             # weighting of each class: only the fall class gets a different weight
             class_weight = {0: self.weight_0, 1: 1}
             # Batch training
             if self.mini_batch_size == 0:
-                history = self.classifier.fit(X_train, y_train, 
+                history = classifier.fit(X_train, y_train, 
                         validation_data=(X_test, y_test), 
                         batch_size=X_train.shape[0], epochs=self.epochs, 
                         shuffle='batch', class_weight=class_weight)
             else:
-                history = self.classifier.fit(X_train, y_train, 
+                history = classifier.fit(X_train, y_train, 
                         validation_data=(X_test, y_test), 
                         batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
                         shuffle=True, class_weight=class_weight, verbose=2)
@@ -252,9 +258,9 @@ class Train:
             self.plot_training_info(exp, ['accuracy', 'loss'], True, 
                                history.history)
 
-            self.classifier.save(stream + '_classifier_' + self.id + '.h5')
-            predicted = np.asarray(self.classifier.predict(np.asarray(X_test)))
-            train_predicted = np.asarray(self.classifier.predict(np.asarray(X_train)))
+            classifier.save(stream + '_classifier_' + self.id + '.h5')
+            predicted = np.asarray(classifier.predict(np.asarray(X_test)))
+            train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
 
             if stream == 'spatial' or stream == 'pose':
                 len_RGB = len(y_test)
@@ -266,26 +272,29 @@ class Train:
                 self.evaluate_threshold(predicted, y_test)
 
                 if not temporal:
-                    Truth = y_test
+                    truth = y_test
+                    train_truth = y_train
                     predicteds.append(predicted)
                     train_predicteds.append(train_predicted)
                 else:    
-                    Truth = y_test
+                    truth = y_test
+                    train_truth = y_train
                     pos = 0
                     train_pos = 0
                     index = []
                     train_index = []
-                    for c in range(len(self.all_num)):  
+                    for c in range(len(all_num)):  
                         for x in test_videos[c]:
-                            num_samples = self.all_samples[x][0]
+                            num_samples = all_samples[x][0]
                             index += list(range(pos + num_samples - self.sliding_height, pos + num_samples))
                             pos+=num_samples
                         for x in train_videos[c]:
-                            num_samples = self.all_samples[x][0]
+                            num_samples = all_samples[x][0]
                             train_index += list(range(train_pos + num_samples - self.sliding_height, train_pos + num_samples))
                             train_pos+=num_samples
 
-                    Truth = np.delete(Truth, index)
+                    truth = np.delete(truth, index)
+                    train_truth = np.delete(train_truth, train_index)
                     clean_predicted = np.delete(predicted, index)
                     train_clean_predicted = np.delete(train_predicted, train_index)
                     predicteds.append(clean_predicted)
@@ -295,7 +304,8 @@ class Train:
 
                 # Checking if temporal is the only stream
                 if len(streams) == 1:
-                    Truth = y_test
+                    truth = y_test
+                    train_truth = y_train
 
                 len_STACK = len(y_test)
                 train_len_STACK = len(y_train)
@@ -307,11 +317,13 @@ class Train:
                 self.evaluate_threshold(predicted, y_test)
                 
         if temporal:
-            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('temporal', test_size)
             avg_predicted = np.zeros(len_STACK, dtype=np.float)
             train_avg_predicted = np.zeros(train_len_STACK, dtype=np.float)
-            clf_train_predicteds = np.zeros( (train_len_STACK, len(streams)) )
+            clf_train_predicteds = np.zeros((train_len_STACK, len(streams)))
 
+            print(len(predicteds[0]), len(predicteds[1]))
+            print(len_STACK)
+            print(avg_predicted.shape)
             for j in range(len_STACK):
                 for i in range(len(streams)):
                     avg_predicted[j] += predicteds[i][j] 
@@ -327,7 +339,6 @@ class Train:
             for j in range(train_len_STACK):
                 clf_train_predicteds[j] = [item[j] for item in train_predicteds]
         else:
-            X_train, X_test, y_train, y_test, train_videos, test_videos = self.video_random_split('pose', test_size)
             avg_predicted = np.zeros(len_RGB, dtype=np.float)
             train_avg_predicted = np.zeros(train_len_RGB, dtype=np.float)
             clf_train_predicteds = np.zeros( (train_len_RGB, len(streams)) )
@@ -347,30 +358,33 @@ class Train:
                 clf_train_predicteds[j] = [item[j] for item in train_predicteds]
         
         print('EVALUATE WITH average and threshold')
-        self.evaluate_threshold(np.array(avg_predicted, copy=True), Truth)
+        self.evaluate_threshold(np.array(avg_predicted, copy=True), truth)
 
         clf_avg = svm.SVC()                                                                 
-        clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train.ravel())
+        clf_avg.fit(train_avg_predicted.reshape(-1, 1), train_truth)
         for i in range(len(avg_predicted)):
             avg_predicted[i] = clf_avg.predict(avg_predicted[i])
 
         joblib.dump(clf_avg, 'svm_avg.pkl') 
 
+        del clf_avg
+        gc.collect()
+
         print('EVALUATE WITH average and SVM')
-        self.evaluate(avg_predicted, Truth)
+        self.evaluate(avg_predicted, truth)
 
         clf_continuous = svm.SVC()
 
-        clf_continuous.fit(clf_train_predicteds, y_train.ravel())
+        clf_continuous.fit(clf_train_predicteds, train_truth)
         avg_continuous = np.array(avg_predicted, copy=True)
         for i in range(len(avg_continuous)):
             avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
 
         joblib.dump(clf_continuous, 'svm_cont.pkl') 
         print('EVALUATE WITH continuous values and SVM')
-        del self.classifier
+        del clf_continuous
         gc.collect()
-        return self.evaluate(avg_continuous, Truth)
+        return self.evaluate(avg_continuous, truth)
 
     def evaluate_threshold(self, predicted, _y2):
 
@@ -430,10 +444,12 @@ class Train:
         adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
                     epsilon=1e-08, decay=0.0005)
 
-        self.classifier = Model(input=extracted_features, output=x, 
+        classifier = Model(input=extracted_features, output=x, 
                            name='classifier')
-        self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
+        classifier.compile(optimizer=adam, loss='binary_crossentropy',
                            metrics=['accuracy'])
+
+        return classifier
 
     def set_classifier_vgg16(self):
         extracted_features = Input(shape=(self.num_features,), dtype='float32',
@@ -461,10 +477,12 @@ class Train:
         adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
                     epsilon=1e-08, decay=0.0005)
 
-        self.classifier = Model(input=extracted_features, output=x, 
+        classifier = Model(input=extracted_features, output=x, 
                            name='classifier')
-        self.classifier.compile(optimizer=adam, loss='binary_crossentropy',
+        classifier.compile(optimizer=adam, loss='binary_crossentropy',
                            metrics=['accuracy'])
+
+        return classifier
 
     def plot_training_info(self, case, metrics, save, history):
         '''
