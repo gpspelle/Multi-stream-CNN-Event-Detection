@@ -87,13 +87,32 @@ class Fextractor:
         videos are going to be stored
         * features_key: name of the key for the hdf5 file to store the features
         * labels_key: name of the key for the hdf5 file to store the labels
-        * samples_key: name of the key for the hdf5 file to store the labels
         * samples_key: name of the key for the hdf5 file to store the samples
         * num_key: name of the key for the hdf5 file to store the num
         * data_folder: folder with class0 and class1 folders
         '''
 
         dirs = []
+
+        # File to store the extracted features and datasets to store them
+        # IMPORTANT NOTE: 'w' mode totally erases previous data
+        print("### Creating h5 files", flush=True)
+        h5features = h5py.File(features_file,'w')
+        h5labels = h5py.File(labels_file,'w')
+        h5samples = h5py.File(samples_file, 'w')
+        h5num_classes = h5py.File(num_file, 'w')
+        cams = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
+
+        stacks_in_cam = dict()
+        for cam in cams:
+            stacks_in_cam[cam] = 0
+
+        for c in self.classes:
+            h5features.create_group(c)
+            h5labels.create_group(c)
+            for cam in cams:
+                h5features[c].create_group(cam)
+                h5labels[c].create_group(cam)
 
         for c in range(len(self.classes)):
 
@@ -108,23 +127,27 @@ class Fextractor:
                               dir + '/pose_*.jpg')
 
                 if int(len(self.frames)) >= self.sliding_height:
+                    # search with cam is being used in this dir
+                    # dir is something like: chute01cam2 or chute01cam2_00
+                    for cam in cams:
+                        if cam in dir:
+                            stacks_in_cam[cam] = stacks_in_cam[cam] + len(self.frames)
+                     
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
                     self.class_value.append(self.classes[c])
                     self.nb_total_frames += len(self.frames)
 
-        # File to store the extracted features and datasets to store them
-        # IMPORTANT NOTE: 'w' mode totally erases previous data
-        print("### Creating h5 files", flush=True)
-        h5features = h5py.File(features_file,'w')
-        h5labels = h5py.File(labels_file,'w')
-        h5samples = h5py.File(samples_file, 'w')
-        h5num_classes = h5py.File(num_file, 'w')
 
-        dataset_features = h5features.create_dataset(features_key, 
-                shape=(self.nb_total_frames, self.num_features), dtype='float64')
-        dataset_labels = h5labels.create_dataset(labels_key, 
-                shape=(self.nb_total_frames, 1), dtype='float64')  
+        datasets_f = dict()
+        datasets_l = dict()
+        for c in self.classes:
+            datasets_f[c] = dict()
+            datasets_l[c] = dict()
+            for cam in cams:
+                datasets_f[c][cam] = h5features[c][cam].create_dataset(cam, shape=(stacks_in_cam[cam], self.num_features), dtype='float64')
+                datasets_l[c][cam] = h5labels[c][cam].create_dataset(cam, shape=(stacks_in_cam[cam], 1), dtype='float64')
+
         dataset_samples = h5samples.create_dataset(samples_key, 
                 shape=(len(self.class_value), 1), 
                 dtype='int32')  
@@ -134,12 +157,19 @@ class Fextractor:
         for c in range(len(self.classes)):
             dataset_num[c] = len(self.classes_dirs[c])
 
-        cont = 0
+        cont = dict()
+        for cam in cams:
+            cont[cam] = 0
         number = 0
-        
+
+        for c in range(len(self.classes)):
+            dataset_num[c] = len(self.classes_dirs[c])
+
         print("### Extracting Features", flush=True)
         for folder, dir, classe in zip(self.folders, dirs, self.class_value):
-            self.update_progress(cont/self.nb_total_frames)
+            for cam in cams:
+                if cam in dir:
+                    self.update_progress(cont[cam]/stacks_in_cam[cam])
             self.frames = glob.glob(folder + '/pose_*.jpg')
             self.frames.sort()
             #label = glob.glob(data_folder + classe + '/' + dir + '/' + '*.npy')
@@ -169,9 +199,11 @@ class Fextractor:
                     #truth[i] = label_values[i+fraction*amount_frames]
                     truth[i] = label
 
-                dataset_features[cont:cont+amount_frames,:] = predictions
-                dataset_labels[cont:cont+amount_frames,:] = truth
-                cont += amount_frames
+                for cam in cams:
+                    if cam in dir:
+                        datasets_f[classe][cam][cont[cam]:cont[cam]+amount_frames,:] = predictions
+                        datasets_l[classe][cam][cont[cam]:cont[cam]+amount_frames,:] = truth
+                        cont[cam] += amount_frames
 
             amount_frames = nb_frames % amount_frames
 
@@ -188,11 +220,14 @@ class Fextractor:
                 #truth[i] = label_values[fraction_frames * 100 + i]
                 truth[i] = label
 
-            dataset_features[cont:cont+amount_frames,:] = predictions
-            dataset_labels[cont:cont+amount_frames,:] = truth
+            for cam in cams:
+                if cam in dir:
+                    datasets_f[classe][cam][cont[cam]:cont[cam]+amount_frames,:] = predictions
+                    datasets_l[classe][cam][cont[cam]:cont[cam]+amount_frames,:] = truth
+                    cont[cam] += amount_frames
+
             dataset_samples[number] = nb_frames
             number+=1
-            cont += amount_frames
 
         h5features.close()
         h5labels.close()
