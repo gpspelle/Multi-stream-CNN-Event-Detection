@@ -106,6 +106,7 @@ class Fextractor:
             exit(1)
 
         dirs = []
+        num_class = []
 
         # File to store the extracted features and datasets to store them
         # IMPORTANT NOTE: 'w' mode totally erases previous data
@@ -137,6 +138,7 @@ class Fextractor:
 
         for c in range(len(self.classes)):
 
+            num_class.append(0)
             if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
                 print("Sorry. Classes possibles are Falls and NotFalls, its \
                     hardcoded and will be expanded really soon. Its being \
@@ -154,6 +156,7 @@ class Fextractor:
                 if int(len(check_size)) >= sliding_height:
                     # search with cam is being used in this dir
                     # dir is something like: chute01cam2 or chute01cam2_00
+                    num_class[-1] += 1
                     for cam in cams:
                         if cam in dir:
                             if stream == 'temporal':
@@ -186,7 +189,7 @@ class Fextractor:
                 dtype='int32')  
         
         for c in range(len(self.classes)):
-            dataset_num[c] = len(self.classes_dirs[c])
+            dataset_num[c] = num_class[c]
 
         cont = dict()
         for cam in cams:
