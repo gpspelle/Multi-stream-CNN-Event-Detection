@@ -87,7 +87,6 @@ class Fextractor:
         videos are going to be stored
         * features_key: name of the key for the hdf5 file to store the features
         * labels_key: name of the key for the hdf5 file to store the labels
-        * samples_key: name of the key for the hdf5 file to store the labels
         * samples_key: name of the key for the hdf5 file to store the samples
         * num_key: name of the key for the hdf5 file to store the num
         * data_folder: folder with class0 and class1 folders
@@ -109,8 +108,9 @@ class Fextractor:
             exit(1)
 
         dirs = []
-
+        num_class = []
         for c in range(len(self.classes)):
+            num_class.append(0)
 
             if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
                 print("Sorry. Classes possibles are Falls and NotFalls, its \
@@ -123,6 +123,7 @@ class Fextractor:
                               dir + '/flow_x*.jpg')
 
                 if int(len(self.frames)) >= sliding_height:
+                    num_class[-1] += 1
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
                     self.class_value.append(self.classes[c])
@@ -147,7 +148,7 @@ class Fextractor:
                 dtype='int32')  
         
         for c in range(len(self.classes)):
-            dataset_num[c] = len(self.classes_dirs[c])
+            dataset_num[c] = num_class[c]
 
         cont = 0
         number = 0

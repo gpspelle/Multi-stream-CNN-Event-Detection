@@ -94,9 +94,9 @@ class Fextractor:
         '''
 
         dirs = []
-
+        num_class = []
         for c in range(len(self.classes)):
-
+            num_class.append(0)
             if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
                 print("Sorry. Classes possibles are Falls and NotFalls, it's \
                     hardcoded and will be expanded really soon. It's being \
@@ -106,8 +106,11 @@ class Fextractor:
             for dir in self.classes_dirs[c]: 
                 self.frames = glob.glob(data_folder + self.classes[c] + '/' + 
                               dir + '/pose_*.jpg')
+                stacks = glob.glob(data_folder + self.classes[c] + '/' + dir + 
+                                '/flow_x*.jpg')
 
-                if int(len(self.frames)) >= self.sliding_height:
+                if int(len(stacks)) >= self.sliding_height:
+                    num_class[-1] += 1
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
                     self.class_value.append(self.classes[c])
@@ -132,7 +135,7 @@ class Fextractor:
                 dtype='int32')  
         
         for c in range(len(self.classes)):
-            dataset_num[c] = len(self.classes_dirs[c])
+            dataset_num[c] = num_class[c]
 
         cont = 0
         number = 0
