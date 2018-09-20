@@ -1,5 +1,6 @@
 import keras
 from keras.models import load_model
+from keras import backend as K
 import math
 import sys
 import argparse
@@ -118,13 +119,12 @@ class Fextractor:
         cams = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
 
         datas_in_cam = dict()
-        for cam in cams:
-            datas_in_cam[cam] = 0
-
         for c in self.classes:
+            datas_in_cam[c] = dict()
             h5features.create_group(c)
             h5labels.create_group(c)
             for cam in cams:
+                datas_in_cam[c][cam] = 0
                 h5features[c].create_group(cam)
                 h5labels[c].create_group(cam)
 
@@ -160,9 +160,9 @@ class Fextractor:
                     for cam in cams:
                         if cam in dir:
                             if stream == 'temporal':
-                                datas_in_cam[cam] = datas_in_cam[cam] + len(self.data) - sliding_height + 1 
+                                datas_in_cam[self.classes[c]][cam] = datas_in_cam[self.classes[c]][cam] + len(self.data) - sliding_height + 1 
                             else:
-                                datas_in_cam[cam] = datas_in_cam[cam] + len(self.data) 
+                                datas_in_cam[self.classes[c]][cam] = datas_in_cam[self.classes[c]][cam] + len(self.data) 
                      
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
@@ -179,8 +179,8 @@ class Fextractor:
             datasets_f[c] = dict()
             datasets_l[c] = dict()
             for cam in cams:
-                datasets_f[c][cam] = h5features[c][cam].create_dataset(cam, shape=(datas_in_cam[cam], self.num_features), dtype='float64')
-                datasets_l[c][cam] = h5labels[c][cam].create_dataset(cam, shape=(datas_in_cam[cam], 1), dtype='float64')
+                datasets_f[c][cam] = h5features[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], self.num_features), dtype='float64')
+                datasets_l[c][cam] = h5labels[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], 1), dtype='float64')
 
         dataset_samples = h5samples.create_dataset(samples_key, 
                 shape=(len(self.class_value), 1), 
@@ -191,16 +191,19 @@ class Fextractor:
         for c in range(len(self.classes)):
             dataset_num[c] = num_class[c]
 
-        cont = dict()
-        for cam in cams:
-            cont[cam] = 0
         number = 0
-        
+        cam_cont_sum = 0 
+    
+        for c in self.classes:
+            for cam in cams:
+                cam_cont_sum += datas_in_cam[c][cam]
+
+        progress_cams = 0.0
+
         print("### Extracting Features", flush=True)
         for folder, dir, classe in zip(self.folders, dirs, self.class_value):
-            for cam in cams:
-                if cam in dir:
-                    self.update_progress(cont[cam]/datas_in_cam[cam])
+            cont = 0
+            self.update_progress(progress_cams/cam_cont_sum)
         
             self.data_images = glob.glob(folder + file_name)
             self.data_images.sort()
@@ -273,23 +276,24 @@ class Fextractor:
                         #truth[i] = self.get_media_optflow(label_values, i+(fraction*amount_datas), sliding_height)
                         truth[i] = label
                 else:
-                    predictions = np.zeros((amount_frames, self.num_features), 
+                    predictions = np.zeros((amount_datas, self.num_features), 
                             dtype=np.float64)
-                    truth = np.zeros((amount_frames, 1), dtype='int8')
+                    truth = np.zeros((amount_datas, 1), dtype='int8')
                     # Process each stack: do the feed-forward pass and store in the 
                     # hdf5 file the output
-                    for i in range(amount_frames):
+                    for i in range(amount_datas):
                         frame = next(iterr)
                         frame = cv2.imread(frame)
                         predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
-                        #truth[i] = label_values[i+fraction*amount_frames]
                         truth[i] = label
 
                 for cam in cams:
                     if cam in dir:
-                        datasets_f[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = predictions
-                        datasets_l[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = truth
-                        cont[cam] += amount_datas
+                        datasets_f[classe][cam][cont:cont+amount_datas,:] = predictions
+                        datasets_l[classe][cam][cont:cont+amount_datas,:] = truth
+                        cont += amount_datas
+                        progress_cams += amount_datas
+                        break
 
             amount_datas = nb_datas % amount_datas
             predictions = np.zeros((amount_datas, self.num_features), 
@@ -335,19 +339,19 @@ class Fextractor:
             else:
                 # Process each stack: do the feed-forward pass and store in the 
                 # hdf5 file the output
-                for i in range(amount_frames):
+                for i in range(amount_datas):
                     frame = next(iterr)
                     frame = cv2.imread(frame)
                     predictions[i, ...] = extractor_model.predict(np.expand_dims(frame, 0))
-                    # todo: this 100 value is related to initial amount_frames
-                    #truth[i] = label_values[fraction_frames * 100 + i]
                     truth[i] = label
 
             for cam in cams:
                 if cam in dir:
-                    datasets_f[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = predictions
-                    datasets_l[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = truth
-                    cont[cam] += amount_datas
+                    datasets_f[classe][cam][cont:cont+amount_datas,:] = predictions
+                    datasets_l[classe][cam][cont:cont+amount_datas,:] = truth
+                    cont += amount_datas
+                    progress_cams += amount_datas
+                    break
                 
             dataset_samples[number] = nb_datas
             number+=1
@@ -400,9 +404,6 @@ if __name__ == '__main__':
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-cnn_arch", dest='cnn_arch', type=str, nargs=1,
-            help='Usage: -cnn_arch <path_to_your_stored_architecture>', 
-            required=True)
     argp.add_argument("-id", dest='id', type=str, nargs=1,
             help='Usage: -id <identifier_to_this_features>', required=True)
     
@@ -417,6 +418,7 @@ if __name__ == '__main__':
         fextractor = Fextractor(args.classes, args.id[0])
         fextractor.get_dirs(args.data_folder[0])
         fextractor.extract(stream, 'VGG16_' + stream, args.data_folder[0])
+        K.clear_session()
 
 '''
     todo: criar excecoes para facilitar o uso
