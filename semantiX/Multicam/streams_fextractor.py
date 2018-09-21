@@ -119,21 +119,29 @@ class Fextractor:
         cams = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
 
         datas_in_cam = dict()
+        videos_in_cam = dict()
+        cam_video_count = dict()
         for c in self.classes:
             datas_in_cam[c] = dict()
+            videos_in_cam[c] = dict()
+            cam_video_count[c] = dict()
             h5features.create_group(c)
             h5labels.create_group(c)
+            h5samples.create_group(c)
             for cam in cams:
                 datas_in_cam[c][cam] = 0
+                videos_in_cam[c][cam] = 0
+                cam_video_count[c][cam] = 0
                 h5features[c].create_group(cam)
                 h5labels[c].create_group(cam)
+                h5samples[c].create_group(cam)
 
         if stream == 'temporal':
             file_name = '/flow_x*.jpg'
             file_name_1 = '/flow_y*.jpg'
-        elif stream == '/pose':
+        elif stream == 'pose':
             file_name = '/pose_*.jpg'
-        elif stream == 'spatial':
+        else:
             file_name = '/frame_*.jpg'
 
         for c in range(len(self.classes)):
@@ -159,6 +167,7 @@ class Fextractor:
                     num_class[-1] += 1
                     for cam in cams:
                         if cam in dir:
+                            videos_in_cam[self.classes[c]][cam] += 1
                             if stream == 'temporal':
                                 datas_in_cam[self.classes[c]][cam] = datas_in_cam[self.classes[c]][cam] + len(self.data) - sliding_height + 1 
                             else:
@@ -175,16 +184,16 @@ class Fextractor:
 
         datasets_f = dict()
         datasets_l = dict()
+        datasets_s = dict()
         for c in self.classes:
             datasets_f[c] = dict()
             datasets_l[c] = dict()
+            datasets_s[c] = dict()
             for cam in cams:
                 datasets_f[c][cam] = h5features[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], self.num_features), dtype='float64')
                 datasets_l[c][cam] = h5labels[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], 1), dtype='float64')
+                datasets_s[c][cam] = h5samples[c][cam].create_dataset(cam, shape=(videos_in_cam[c][cam], 1), dtype='int32')
 
-        dataset_samples = h5samples.create_dataset(samples_key, 
-                shape=(len(self.class_value), 1), 
-                dtype='int32')  
         dataset_num = h5num_classes.create_dataset(num_key, shape=(len(self.classes), 1), 
                 dtype='int32')  
         
@@ -228,6 +237,8 @@ class Fextractor:
 
             amount_datas = 100 
             fraction_datas = nb_datas // amount_datas
+
+            iterr = iter(self.data_images)
 
             image_c = 0
             for fraction in range(fraction_datas):
@@ -351,11 +362,10 @@ class Fextractor:
                     datasets_l[classe][cam][cont:cont+amount_datas,:] = truth
                     cont += amount_datas
                     progress_cams += amount_datas
+                    datasets_s[classe][cam][cam_video_count[classe][cam]] = nb_datas
+                    cam_video_count[classe][cam] += 1
                     break
                 
-            dataset_samples[number] = nb_datas
-            number+=1
-
         h5features.close()
         h5labels.close()
         h5samples.close()
