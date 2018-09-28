@@ -203,15 +203,18 @@ class Fextractor:
         number = 0
         cam_cont_sum = 0 
     
+        cont = dict()
         for c in self.classes:
             for cam in cams:
                 cam_cont_sum += datas_in_cam[c][cam]
+
+        for cam in cams:
+            cont[cam] = 0
 
         progress_cams = 0.0
 
         print("### Extracting Features", flush=True)
         for folder, dir, classe in zip(self.folders, dirs, self.class_value):
-            cont = 0
             self.update_progress(progress_cams/cam_cont_sum)
         
             self.data_images = glob.glob(folder + file_name)
@@ -300,9 +303,9 @@ class Fextractor:
 
                 for cam in cams:
                     if cam in dir:
-                        datasets_f[classe][cam][cont:cont+amount_datas,:] = predictions
-                        datasets_l[classe][cam][cont:cont+amount_datas,:] = truth
-                        cont += amount_datas
+                        datasets_f[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = predictions
+                        datasets_l[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = truth
+                        cont[cam] += amount_datas
                         progress_cams += amount_datas
                         break
 
@@ -358,9 +361,9 @@ class Fextractor:
 
             for cam in cams:
                 if cam in dir:
-                    datasets_f[classe][cam][cont:cont+amount_datas,:] = predictions
-                    datasets_l[classe][cam][cont:cont+amount_datas,:] = truth
-                    cont += amount_datas
+                    datasets_f[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = predictions
+                    datasets_l[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = truth
+                    cont[cam] += amount_datas
                     progress_cams += amount_datas
                     datasets_s[classe][cam][cam_video_count[classe][cam]] = nb_datas
                     cam_video_count[classe][cam] += 1
