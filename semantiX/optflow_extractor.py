@@ -61,6 +61,7 @@ class Optflow_extractor:
     def extract_optflow(self, data_folder, videos, dirs, class_):
 
         for (video, dir) in zip(videos, dirs): 
+            print(dir)
             counter = 1
             cap = cv2.VideoCapture(video)
             success, frame1 = cap.read()
@@ -70,7 +71,7 @@ class Optflow_extractor:
                 print("Inside every folder in dataset it's expected a valid" +
                 "(non-empty) video with name equal to the folder + .mp4." +
                 "In your case, inside %s it's expected a %s video" 
-                % (data_folder + class_ + dir, video)
+                % (data_folder + class_ + '/' + dir, video)
                 , file=sys.stderr)
                 exit(1)
             hsv = np.zeros_like(frame1)
@@ -125,7 +126,7 @@ class Optflow_extractor:
             self.classes_videos.append([])
             for f in self.classes_dirs[-1]:
                 self.classes_videos[-1].append(data_folder + c+ '/' + f +
-                                   '/' + f + '.mp4')
+                                   '/' + f + '.avi')
 
             self.classes_videos[-1].sort()
 
