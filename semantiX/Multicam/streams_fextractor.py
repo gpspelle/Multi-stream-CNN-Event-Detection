@@ -51,8 +51,6 @@ class Fextractor:
         self.x_size = 224
         self.y_size = 224
         self.id = id
-        # Total amount of data with sliding window=num_images-sliding_height+1
-        self.nb_total_data = 0
 
     def extract(self, stream, model, data_folder):
 
@@ -141,8 +139,11 @@ class Fextractor:
             file_name_1 = '/flow_y*.jpg'
         elif stream == 'pose':
             file_name = '/pose_*.jpg'
-        else:
+        elif stream == 'spatial':
             file_name = '/frame_*.jpg'
+        else:
+            print("INVALID STREAM ERROR")
+            exit(1)
 
         for c in range(len(self.classes)):
 
@@ -171,16 +172,11 @@ class Fextractor:
                             if stream == 'temporal':
                                 datas_in_cam[self.classes[c]][cam] = datas_in_cam[self.classes[c]][cam] + len(self.data) - sliding_height + 1 
                             else:
-                                datas_in_cam[self.classes[c]][cam] = datas_in_cam[self.classes[c]][cam] + len(self.data) 
+                                datas_in_cam[self.classes[c]][cam] = datas_in_cam[self.classes[c]][cam] + len(self.data) - sliding_height 
                      
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
                     dirs.append(dir)
                     self.class_value.append(self.classes[c])
-
-                    if stream == 'temporal':
-                        self.nb_total_data += len(self.data) - sliding_height + 1
-                    else:
-                        self.nb_total_data += len(self.data)
 
         datasets_f = dict()
         datasets_l = dict()
@@ -190,6 +186,7 @@ class Fextractor:
             datasets_l[c] = dict()
             datasets_s[c] = dict()
             for cam in cams:
+                print(datas_in_cam[c][cam])
                 datasets_f[c][cam] = h5features[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], self.num_features), dtype='float64')
                 datasets_l[c][cam] = h5labels[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], 1), dtype='float64')
                 datasets_s[c][cam] = h5samples[c][cam].create_dataset(cam, shape=(videos_in_cam[c][cam], 1), dtype='int32')
@@ -205,11 +202,10 @@ class Fextractor:
     
         cont = dict()
         for c in self.classes:
+            cont[c] = dict()
             for cam in cams:
                 cam_cont_sum += datas_in_cam[c][cam]
-
-        for cam in cams:
-            cont[cam] = 0
+                cont[c][cam] = 0
 
         progress_cams = 0.0
 
@@ -220,10 +216,18 @@ class Fextractor:
             self.data_images = glob.glob(folder + file_name)
             self.data_images.sort()
 
+
+            print(len(self.data_images))
             if stream == 'temporal':
                 self.data_images_1 = glob.glob(folder + file_name_1)
                 self.data_images_1.sort()
+            elif stream == 'spatial' or stream == 'pose':
+                self.data_images = self.data_images[:-sliding_height]
+            else:
+                print("INVALID STREAM ERROR")
+                exit(1)
 
+            print(len(self.data_images))
             label = -1
             if classe == 'Falls':
                 label = 0
@@ -235,8 +239,11 @@ class Fextractor:
 
             if stream == 'temporal':
                 nb_datas = len(self.data_images) - sliding_height + 1
-            else:
+            elif stream == 'spatial' or 'pose':
                 nb_datas = len(self.data_images)
+            else:
+                print("INVALID STREAM ERROR")
+                exit(1)
 
             amount_datas = 100 
             fraction_datas = nb_datas // amount_datas
@@ -303,9 +310,9 @@ class Fextractor:
 
                 for cam in cams:
                     if cam in dir:
-                        datasets_f[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = predictions
-                        datasets_l[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = truth
-                        cont[cam] += amount_datas
+                        datasets_f[classe][cam][cont[classe][cam]:cont[classe][cam]+amount_datas,:] = predictions
+                        datasets_l[classe][cam][cont[classe][cam]:cont[classe][cam]+amount_datas,:] = truth
+                        cont[classe][cam] += amount_datas
                         progress_cams += amount_datas
                         break
 
@@ -361,9 +368,9 @@ class Fextractor:
 
             for cam in cams:
                 if cam in dir:
-                    datasets_f[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = predictions
-                    datasets_l[classe][cam][cont[cam]:cont[cam]+amount_datas,:] = truth
-                    cont[cam] += amount_datas
+                    datasets_f[classe][cam][cont[classe][cam]:cont[classe][cam]+amount_datas,:] = predictions
+                    datasets_l[classe][cam][cont[classe][cam]:cont[classe][cam]+amount_datas,:] = truth
+                    cont[classe][cam] += amount_datas
                     progress_cams += amount_datas
                     datasets_s[classe][cam][cam_video_count[classe][cam]] = nb_datas
                     cam_video_count[classe][cam] += 1
@@ -428,6 +435,7 @@ if __name__ == '__main__':
 
 
     for stream in args.streams:
+        print("STREAM: " + stream)
         fextractor = Fextractor(args.classes, args.id[0])
         fextractor.get_dirs(args.data_folder[0])
         fextractor.extract(stream, 'VGG16_' + stream, args.data_folder[0])

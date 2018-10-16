@@ -76,57 +76,13 @@ class Train:
 
     def cross_train(self, streams):
 
-        f_tpr = 0
-        f_fpr = 0
-        f_fnr = 0
-        f_tnr = 0
-        f_precision = 0
-        f_recall = 0
-        f_specificity = 0
-        f_f1 = 0
-        f_accuracy = 0
-
         # Big TODO's: 
         # 1. it isn't exactly k-fold because the data istn't partitioned once.
         # it's divided in a random way at each self.train call
         # 2. it isn't being chosen a model, but first, a criteria must be find
     
         cams = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
-        for cam in cams: 
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.train(streams, cams, cam)
-            K.clear_session()
-            f_tpr += tpr
-            f_fpr += fpr
-            f_fnr += fnr
-            f_tnr += tnr
-            f_precision += precision
-            f_recall += recall
-            f_specificity += specificity
-            f_f1 += f1
-            f_accuracy += accuracy
-
-        nsplits = 8
-        f_tpr /= nsplits
-        f_fpr /= nsplits
-        f_fnr /= nsplits
-        f_tnr /= nsplits
-        f_precision /= nsplits
-        f_recall /= nsplits
-        f_specificity /= nsplits
-        f_f1 /= nsplits
-        f_accuracy /= nsplits
-
-        print("***********************************************************")
-        print("             SEMANTIX - UNICAMP DATALAB 2018")
-        print("***********************************************************")
-        print("CROSS VALIDATION MEAN RESULTS: %d splits" % (nsplits))
-        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(f_tpr,f_tnr,f_fpr,f_fnr))   
-        print('Sensitivity/Recall: {}'.format(f_recall))
-        print('Specificity: {}'.format(f_specificity))
-        print('Precision: {}'.format(f_precision))
-        print('F1-measure: {}'.format(f_f1))
-        print('Accuracy: {}'.format(f_accuracy))
-
+        self.real_cross_train(streams, cams)
 
     def video_cam_split(self, stream, cams, camera):
         f = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
@@ -164,188 +120,319 @@ class Train:
 
         return X_train, X_test, y_train, y_test
 
-    def train(self, streams, cams, camera):
+    def real_cross_train(self, streams, cams):
   
         VGG16 = True
         predicteds = []
         train_predicteds = []
-        temporal = 'temporal' in streams
-        len_RGB = 0
-        train_len_RGB = 0
-        len_STACK = 0
-        train_len_STACK = 0
-
-        # this local seed guarantee that all the streams will use the same videos
-        local_seed = random.randint(0, 10000)
-        for stream in streams:
-
-            if VGG16:
-                classifier = self.set_classifier_vgg16()
-            else:
-                classifier = self.set_classifier_resnet50()
-
-            h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
-            h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
-            h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
-
-            sensitivities = []
-            specificities = []
-            fars = []
-            mdrs = []
-            accuracies = []
-
-            X_train, X_test, y_train, y_test = self.video_cam_split(stream, cams, camera)
-
-            print("###### Data divided in train and test")
-            # ==================== TRAINING ========================     
-            # weighting of each class: only the fall class gets a different weight
-            class_weight = {0: self.weight_0, 1: 1}
-            tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
-            # Batch training
-            if self.mini_batch_size == 0:
-                history = classifier.fit(X_train, y_train, 
-                        validation_data=(X_test, y_test), 
-                        batch_size=X_train.shape[0], epochs=self.epochs, 
-                        shuffle='batch', class_weight=class_weight,
-                        callbacks=[tbCallBack])
-            else:
-                history = classifier.fit(X_train, y_train, 
-                        validation_data=(X_test, y_test), 
-                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                        shuffle=True, class_weight=class_weight,
-                        callbacks=[tbCallBack])
-
-            print("###### Train ended")
-            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
-            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
-                               history.history)
-
-            classifier.save(stream + '_classifier_' + self.id + '.h5')
-            predicted = np.asarray(classifier.predict(np.asarray(X_test)))
-            train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
-
-            if stream == 'spatial' or stream == 'pose':
-                len_RGB = len(y_test)
-                train_len_RGB = len(y_train)
-
-                print('EVALUATE WITH %s' % (stream))
-
-                # ==================== EVALUATION ======================== 
-                self.evaluate_threshold(predicted, y_test)
-
-                if not temporal:
-                    truth = y_test
-                    train_truth = y_train
-                    predicteds.append(predicted)
-                    train_predicteds.append(train_predicted)
-                else:    
-                    truth = y_test
-                    train_truth = y_train
-                    pos = 0
-                    train_pos = 0
-                    index = []
-                    train_index = []
-                    for c in self.classes:
-                        for cam in cams:
-                            for bla in range(len(h5samples[c][cam][cam])):
-                                num_samples = h5samples[c][cam][cam][bla][0]
-                                if cam == camera:
-                                    index += list(range(pos + num_samples - self.sliding_height, pos + num_samples))
-                                    pos += num_samples
-                                else:
-                                    train_index += list(range(train_pos + num_samples - self.sliding_height, train_pos + num_samples))
-                                    train_pos += num_samples
-
-                    truth = np.delete(truth, index)
-                    train_truth = np.delete(train_truth, train_index)
-                    clean_predicted = np.delete(predicted, index)
-                    train_clean_predicted = np.delete(train_predicted, train_index)
-                    predicteds.append(clean_predicted)
-                    train_predicteds.append(train_clean_predicted)
-
-            elif stream == 'temporal':
-                # Checking if temporal is the only stream
-                if len(streams) == 1:
-                    truth = y_test
-                    train_truth = y_train
-
-                len_STACK = len(y_test)
-                train_len_STACK = len(y_train)
-                print('EVALUATE WITH %s' % (stream))
-
-                predicteds.append(np.copy(predicted)) 
-                train_predicteds.append(np.copy(train_predicted)) 
-                # ==================== EVALUATION ======================== 
-                self.evaluate_threshold(predicted, y_test)
-                
-        if temporal:
-            avg_predicted = np.zeros(len_STACK, dtype=np.float)
-            train_avg_predicted = np.zeros(train_len_STACK, dtype=np.float)
-            clf_train_predicteds = np.zeros((train_len_STACK, len(streams)))
-
-            for j in range(len_STACK):
-                for i in range(len(streams)):
-                    avg_predicted[j] += predicteds[i][j] 
-
-                avg_predicted[j] /= (len(streams))
-
-            for j in range(train_len_STACK):
-                for i in range(len(streams)):
-                    train_avg_predicted[j] += train_predicteds[i][j] 
-
-                train_avg_predicted[j] /= (len(streams))
-             
-            for j in range(train_len_STACK):
-                clf_train_predicteds[j] = [item[j] for item in train_predicteds]
-        else:
-            avg_predicted = np.zeros(len_RGB, dtype=np.float)
-            train_avg_predicted = np.zeros(train_len_RGB, dtype=np.float)
-            clf_train_predicteds = np.zeros( (train_len_RGB, len(streams)) )
-            for j in range(len_RGB):
-                for i in range(len(streams)):
-                    avg_predicted[j] += predicteds[i][j] 
-
-                avg_predicted[j] /= (len(streams))
-
-            for j in range(train_len_RGB):
-                for i in range(len(streams)):
-                    train_avg_predicted[j] += train_predicteds[i][j] 
-
-                train_avg_predicted[j] /= (len(streams))
-
-            for j in range(train_len_RGB):
-                clf_train_predicteds[j] = [item[j] for item in train_predicteds]
+        nsplits = 8
         
-        del X_test, X_train, y_test, y_train
-        gc.collect()
-        print('EVALUATE WITH average and threshold')
-        self.evaluate_threshold(np.array(avg_predicted, copy=True), truth)
+        taccuracies_t = []
+        taccuracies_s = []
+        taccuracies_p = []
+        taccuracies_avg = []
+        taccuracies_avg_svm = []
+        taccuracies_svm = []
 
-        clf_avg = svm.SVC()                                                                 
-        clf_avg.fit(train_avg_predicted.reshape(-1, 1), train_truth)
-        for i in range(len(avg_predicted)):
-            avg_predicted[i] = clf_avg.predict(avg_predicted[i])
+        sensitivities_t = []
+        specificities_t = []
+        fars_t = []
+        mdrs_t = []
+        accuracies_t = []
 
-        joblib.dump(clf_avg, 'svm_avg.pkl') 
+        sensitivities_p = []
+        specificities_p = []
+        fars_p = []
+        mdrs_p = []
+        accuracies_p = []
 
-        del clf_avg
-        gc.collect()
+        sensitivities_s = []
+        specificities_s = []
+        fars_s = []
+        mdrs_s = []
+        accuracies_s = []
 
-        print('EVALUATE WITH average and SVM')
-        self.evaluate(avg_predicted, truth)
+        sensitivities_svm = []
+        specificities_svm = []
+        fars_svm = []
+        mdrs_svm = []
+        accuracies_svm = []
 
-        clf_continuous = svm.SVC()
+        sensitivities_avg = []
+        specificities_avg = []
+        fars_avg = []
+        mdrs_avg = []
+        accuracies_avg = []
+                    
+        sensitivities_avg_svm = []
+        specificities_avg_svm = []
+        fars_avg_svm = []
+        mdrs_avg_svm = []
+        accuracies_avg_svm = []
 
-        clf_continuous.fit(clf_train_predicteds, train_truth)
-        avg_continuous = np.array(avg_predicted, copy=True)
-        for i in range(len(avg_continuous)):
-            avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+        for camera in cams:
+            for stream in streams:
 
-        joblib.dump(clf_continuous, 'svm_cont.pkl') 
-        print('EVALUATE WITH continuous values and SVM')
-        del clf_continuous
-        gc.collect()
-        return self.evaluate(avg_continuous, truth)
+                if VGG16:
+                    classifier = self.set_classifier_vgg16()
+                else:
+                    classifier = self.set_classifier_resnet50()
+
+                h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
+                h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
+                h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
+
+                sensitivities = []
+                specificities = []
+                fars = []
+                mdrs = []
+                accuracies = []
+
+                X_train, X_test, y_train, y_test = self.video_cam_split(stream, cams, camera)
+
+                all0 = np.asarray(np.where(y_train==0)[0])
+                all1 = np.asarray(np.where(y_train==1)[0])
+                all1 = np.random.choice(all1, len(all0), replace=False)
+                allin = np.concatenate((all0.flatten(),all1.flatten()))
+                allin.sort()
+                X_train = np.asarray(X_train[allin,...])
+                y_train = np.asarray(y_train[allin])
+                print("###### Data divided in train and test")
+                # ==================== TRAINING ========================     
+                # weighting of each class: only the fall class gets a different weight
+                class_weight = {0: self.weight_0, 1: 1}
+                tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
+                # Batch training
+                if self.mini_batch_size == 0:
+                    history = classifier.fit(X_train, y_train, 
+                            validation_data=(X_test, y_test), 
+                            batch_size=X_train.shape[0], epochs=self.epochs, 
+                            shuffle='batch', class_weight=class_weight,
+                            callbacks=[tbCallBack])
+                else:
+                    history = classifier.fit(X_train, y_train, 
+                            validation_data=(X_test, y_test), 
+                            batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                            shuffle=True, class_weight=class_weight,
+                            callbacks=[tbCallBack])
+
+                print("###### Train ended")
+                exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+                self.plot_training_info(exp, ['accuracy', 'loss'], True, 
+                                   history.history)
+
+                classifier.save(stream + '_classifier_' + self.id + '.h5')
+                predicted = np.asarray(classifier.predict(np.asarray(X_test)))
+                train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
+
+                predicteds.append(predicted)
+                train_predicteds.append(train_predicted)
+                print('EVALUATE WITH ' + stream)
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(predicted, y_test)
+
+                if stream=='temporal':
+                    sensitivities_t.append(recall)
+                    specificities_t.append(specificity)
+                    fars_t.append(fpr)
+                    mdrs_t.append(fnr)
+                    accuracies_t.append(accuracy)
+                elif stream == 'pose':
+                    sensitivities_p.append(recall)
+                    specificities_p.append(specificity)
+                    fars_p.append(fpr)
+                    mdrs_p.append(fnr)
+                    accuracies_p.append(accuracy)
+                elif stream == 'spatial':
+                    sensitivities_s.append(recall)
+                    specificities_s.append(specificity)
+                    fars_s.append(fpr)
+                    mdrs_s.append(fnr)
+                    accuracies_s.append(accuracy)
+                
+                print('TRAIN WITH ' + stream)
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(train_predicted, y_train)
+                if stream=='temporal':
+                    taccuracies_t.append(accuracy)
+                elif stream == 'pose':
+                    taccuracies_p.append(accuracy)
+                elif stream == 'spatial':
+                    taccuracies_s.append(accuracy)
+                     
+                avg_predicted = np.zeros(len(y_test), dtype=np.float)
+                train_avg_predicted = np.zeros(len(y_train), dtype=np.float)
+                clf_train_predicteds = np.zeros((len(y_train), len(streams)))
+
+                for j in range(len(y_test)):
+                    for i in range(len(streams)):
+                        avg_predicted[j] += predicteds[i][j] 
+
+                    avg_predicted[j] /= (len(streams))
+
+                for j in range(len(y_train)):
+                    for i in range(len(streams)):
+                        train_avg_predicted[j] += train_predicteds[i][j] 
+
+                    train_avg_predicted[j] /= (len(streams))
+                 
+                for j in range(len(y_train)):
+                    clf_train_predicteds[j] = [item[j] for item in train_predicteds]
+                
+                print('EVALUATE WITH average and threshold')
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(avg_predicted, copy=True), y_test)
+
+                sensitivities_avg.append(recall)
+                specificities_avg.append(specificity)
+                fars_avg.append(fpr)
+                mdrs_avg.append(fnr)
+                accuracies_avg.append(accuracy)
+
+                print('TRAIN WITH average and threshold')
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(train_avg_predicted, copy=True), y_train)
+
+                taccuracies_avg.append(accuracy)
+
+                class_weight = {0: self.weight_0, 1: 1}
+                clf_avg = svm.SVC(class_weight=class_weight)                                                                 
+                clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
+                for i in range(len(avg_predicted)):
+                    avg_predicted[i] = clf_avg.predict(avg_predicted[i])
+
+                joblib.dump(clf_avg, 'svm_avg.pkl') 
+
+                del clf_avg
+                gc.collect()
+
+                print('EVALUATE WITH average and SVM')
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_predicted, y_test)
+
+                sensitivities_avg_svm.append(recall)
+                specificities_avg_svm.append(specificity)
+                fars_avg_svm.append(fpr)
+                mdrs_avg_svm.append(fnr)
+                accuracies_avg_svm.append(accuracy)
+                
+                print('TRAIN WITH average and SVM')
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(train_avg_predicted, y_train)
+                taccuracies_avg_svm.append(accuracy)
+
+                clf_continuous = svm.SVC(class_weight=class_weight)
+
+                clf_continuous.fit(clf_train_predicteds, y_train)
+                avg_continuous = np.array(avg_predicted, copy=True)
+                avg_train_continuous = np.array(train_avg_predicted, copy=True)
+
+                for i in range(len(avg_continuous)):
+                    avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+                
+                for i in range(len(avg_train_continuous)):
+                    avg_train_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
+
+                joblib.dump(clf_continuous, 'svm_cont.pkl') 
+                print('EVALUATE WITH continuous values and SVM')
+                del clf_continuous
+                gc.collect()
+
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_continuous, y_test)
+                
+                sensitivities_svm.append(recall)
+                specificities_svm.append(specificity)
+                fars_svm.append(fpr)
+                mdrs_svm.append(fnr)
+                accuracies_svm.append(accuracy)
+           
+                print('TRAIN WITH continuous values and SVM')
+                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_train_continuous, y_train)
+                taccuracies_svm.append(accuracy)
+
+        sensitivities_best = []
+        specificities_best = []
+        accuracies_best = []
+        fars_best = []
+        mdrs_best = []
+
+        best_acc = -1
+        v = -1
+        for i in range(nsplits):
+            if taccuracies_t[i] > best_acc:
+                best_acc = taccuracies_t[i]
+                v = 0
+            if taccuracies_s[i] > best_acc:
+                best_acc = taccuracies_s[i]
+                v = 1
+            if taccuracies_p[i] > best_acc:
+                best_acc = taccuracies_p[i]
+                v = 2
+            if taccuracies_avg[i] > best_acc:
+                best_acc = taccuracies_avg[i]
+                v = 3
+            if taccuracies_avg_svm[i] > best_acc:
+                best_acc = taccuracies_avg_svm[i]
+                v = 4
+            if taccuracies_svm[i] > best_acc:
+                best_acc = taccuracies_svm[i]
+                v = 5
+
+            if v == 0:
+                print("TEMPORAL IS BEST")
+                sensitivities_best.append(sensitivities_t[i])
+                specificities_best.append(specificities_t[i])
+                accuracies_best.append(accuracies_t[i])
+                fars_best.append(fars_t[i])
+                mdrs_best.append(mdrs_t[i])
+            elif v == 1:
+                print("SPATIAL IS BEST")
+                sensitivities_best.append(sensitivities_s[i])
+                specificities_best.append(specificities_s[i])
+                accuracies_best.append(accuracies_s[i])
+                fars_best.append(fars_s[i])
+                mdrs_best.append(mdrs_s[i])
+            elif v == 2:
+                print("POSE IS BEST")
+                sensitivities_best.append(sensitivities_p[i])
+                specificities_best.append(specificities_p[i])
+                accuracies_best.append(accuracies_p[i])
+                fars_best.append(fars_p[i])
+                mdrs_best.append(mdrs_p[i])
+            elif v == 3:
+                print("AVERAGE IS BEST")
+                sensitivities_best.append(sensitivities_avg[i])
+                specificities_best.append(specificities_avg[i])
+                accuracies_best.append(accuracies_avg[i])
+                fars_best.append(fars_avg[i])
+                mdrs_best.append(mdrs_avg[i])
+            elif v == 4:
+                print("AVERAGE SVM IS BEST")
+                sensitivities_best.append(sensitivities_avg_svm[i])
+                specificities_best.append(specificities_avg_svmt[i])
+                accuracies_best.append(accuracies_avg_svm[i])
+                fars_best.append(fars_avg_svm[i])
+                mdrs_best.append(mdrs_avg_svm[i])
+            elif v == 5:
+                print("SVM IS BEST")
+                sensitivities_best.append(sensitivities_avg_svm[i])
+                sensitivities_best.append(sensitivities_svm[i])
+                specificities_best.append(specificities_svm[i])
+                accuracies_best.append(accuracies_svm[i])
+                fars_best.append(fars_svm[i])
+                mdrs_best.append(mdrs_svm[i])
+        
+        self.print_result('TEMPORAL', sensitivities_t, specificities_t,fars_t, mdrs_t, accuracies_t)
+        self.print_result('SPATIAL', sensitivities_s, specificities_s,fars_s, mdrs_s, accuracies_s)
+        self.print_result('POSE', sensitivities_p, specificities_p, fars_p, mdrs_p, accuracies_p)
+        self.print_result('AVG', sensitivities_avg, specificities_avg, fars_avg, mdrs_avg, accuracies_avg)
+        self.print_result('AVG_SVM', sensitivities_avg_svm, specificities_avg_svm, fars_avg_svm, mdrs_avg_svm, accuracies_avg_svm)
+        self.print_result('SVM', sensitivities_svm, specificities_svm, fars_svm, mdrs_svm, accuracies_svm)
+        self.print_result('BEST', sensitivities_best, specificities_best, fars_best, mdrs_best, accuracies_best)
+
+    def print_result(self, proc, sensitivities, specificities, fars, mdrs, accuracies):
+
+        print('5-FOLD CROSS-VALIDATION RESULTS ' + proc + '===================')
+        print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
+        print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities), np.std(specificities)))
+        print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
+        print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
+        print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), np.std(accuracies)))
+
 
     def evaluate_threshold(self, predicted, _y2):
 
