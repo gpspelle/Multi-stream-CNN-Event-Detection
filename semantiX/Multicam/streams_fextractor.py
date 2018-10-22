@@ -186,7 +186,6 @@ class Fextractor:
             datasets_l[c] = dict()
             datasets_s[c] = dict()
             for cam in cams:
-                print(datas_in_cam[c][cam])
                 datasets_f[c][cam] = h5features[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], self.num_features), dtype='float64')
                 datasets_l[c][cam] = h5labels[c][cam].create_dataset(cam, shape=(datas_in_cam[c][cam], 1), dtype='float64')
                 datasets_s[c][cam] = h5samples[c][cam].create_dataset(cam, shape=(videos_in_cam[c][cam], 1), dtype='int32')
@@ -216,8 +215,6 @@ class Fextractor:
             self.data_images = glob.glob(folder + file_name)
             self.data_images.sort()
 
-
-            print(len(self.data_images))
             if stream == 'temporal':
                 self.data_images_1 = glob.glob(folder + file_name_1)
                 self.data_images_1.sort()
@@ -227,7 +224,6 @@ class Fextractor:
                 print("INVALID STREAM ERROR")
                 exit(1)
 
-            print(len(self.data_images))
             label = -1
             if classe == 'Falls':
                 label = 0

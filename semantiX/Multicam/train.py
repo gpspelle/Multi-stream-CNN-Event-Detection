@@ -123,8 +123,6 @@ class Train:
     def real_cross_train(self, streams, cams):
   
         VGG16 = True
-        predicteds = []
-        train_predicteds = []
         nsplits = 8
         
         taccuracies_t = []
@@ -171,6 +169,9 @@ class Train:
         accuracies_avg_svm = []
 
         for camera in cams:
+            predicteds = []
+            train_predicteds = []
+            K.clear_session()
             for stream in streams:
 
                 if VGG16:
@@ -197,6 +198,7 @@ class Train:
                 allin.sort()
                 X_train = np.asarray(X_train[allin,...])
                 y_train = np.asarray(y_train[allin])
+
                 print("###### Data divided in train and test")
                 # ==================== TRAINING ========================     
                 # weighting of each class: only the fall class gets a different weight
@@ -227,10 +229,11 @@ class Train:
 
                 predicteds.append(predicted)
                 train_predicteds.append(train_predicted)
+
                 print('EVALUATE WITH ' + stream)
                 tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(predicted, y_test)
 
-                if stream=='temporal':
+                if stream == 'temporal':
                     sensitivities_t.append(recall)
                     specificities_t.append(specificity)
                     fars_t.append(fpr)
@@ -251,98 +254,99 @@ class Train:
                 
                 print('TRAIN WITH ' + stream)
                 tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(train_predicted, y_train)
-                if stream=='temporal':
+
+                if stream == 'temporal':
                     taccuracies_t.append(accuracy)
                 elif stream == 'pose':
                     taccuracies_p.append(accuracy)
                 elif stream == 'spatial':
                     taccuracies_s.append(accuracy)
                      
-                avg_predicted = np.zeros(len(y_test), dtype=np.float)
-                train_avg_predicted = np.zeros(len(y_train), dtype=np.float)
-                clf_train_predicteds = np.zeros((len(y_train), len(streams)))
+            avg_predicted = np.zeros(len(y_test), dtype=np.float)
+            train_avg_predicted = np.zeros(len(y_train), dtype=np.float)
+            clf_train_predicteds = np.zeros((len(y_train), len(streams)))
 
-                for j in range(len(y_test)):
-                    for i in range(len(streams)):
-                        avg_predicted[j] += predicteds[i][j] 
+            for j in range(len(y_test)):
+                for i in range(len(streams)):
+                    avg_predicted[j] += predicteds[i][j] 
 
-                    avg_predicted[j] /= (len(streams))
+                avg_predicted[j] /= (len(streams))
 
-                for j in range(len(y_train)):
-                    for i in range(len(streams)):
-                        train_avg_predicted[j] += train_predicteds[i][j] 
+            for j in range(len(y_train)):
+                for i in range(len(streams)):
+                    train_avg_predicted[j] += train_predicteds[i][j] 
 
-                    train_avg_predicted[j] /= (len(streams))
-                 
-                for j in range(len(y_train)):
-                    clf_train_predicteds[j] = [item[j] for item in train_predicteds]
-                
-                print('EVALUATE WITH average and threshold')
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(avg_predicted, copy=True), y_test)
+                train_avg_predicted[j] /= (len(streams))
+             
+            for j in range(len(y_train)):
+                clf_train_predicteds[j] = [item[j] for item in train_predicteds]
+            
+            print('EVALUATE WITH average and threshold')
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(avg_predicted, copy=True), y_test)
 
-                sensitivities_avg.append(recall)
-                specificities_avg.append(specificity)
-                fars_avg.append(fpr)
-                mdrs_avg.append(fnr)
-                accuracies_avg.append(accuracy)
+            sensitivities_avg.append(recall)
+            specificities_avg.append(specificity)
+            fars_avg.append(fpr)
+            mdrs_avg.append(fnr)
+            accuracies_avg.append(accuracy)
 
-                print('TRAIN WITH average and threshold')
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(train_avg_predicted, copy=True), y_train)
+            print('TRAIN WITH average and threshold')
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(train_avg_predicted, copy=True), y_train)
 
-                taccuracies_avg.append(accuracy)
+            taccuracies_avg.append(accuracy)
 
-                class_weight = {0: self.weight_0, 1: 1}
-                clf_avg = svm.SVC(class_weight=class_weight)                                                                 
-                clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
-                for i in range(len(avg_predicted)):
-                    avg_predicted[i] = clf_avg.predict(avg_predicted[i])
+            class_weight = {0: self.weight_0, 1: 1}
+            clf_avg = svm.SVC(class_weight=class_weight)                                                                 
+            clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
+            for i in range(len(avg_predicted)):
+                avg_predicted[i] = clf_avg.predict(avg_predicted[i])
 
-                joblib.dump(clf_avg, 'svm_avg.pkl') 
+            joblib.dump(clf_avg, 'svm_avg.pkl') 
 
-                del clf_avg
-                gc.collect()
+            del clf_avg
+            gc.collect()
 
-                print('EVALUATE WITH average and SVM')
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_predicted, y_test)
+            print('EVALUATE WITH average and SVM')
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_predicted, y_test)
 
-                sensitivities_avg_svm.append(recall)
-                specificities_avg_svm.append(specificity)
-                fars_avg_svm.append(fpr)
-                mdrs_avg_svm.append(fnr)
-                accuracies_avg_svm.append(accuracy)
-                
-                print('TRAIN WITH average and SVM')
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(train_avg_predicted, y_train)
-                taccuracies_avg_svm.append(accuracy)
+            sensitivities_avg_svm.append(recall)
+            specificities_avg_svm.append(specificity)
+            fars_avg_svm.append(fpr)
+            mdrs_avg_svm.append(fnr)
+            accuracies_avg_svm.append(accuracy)
+            
+            print('TRAIN WITH average and SVM')
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(train_avg_predicted, y_train)
+            taccuracies_avg_svm.append(accuracy)
 
-                clf_continuous = svm.SVC(class_weight=class_weight)
+            clf_continuous = svm.SVC(class_weight=class_weight)
 
-                clf_continuous.fit(clf_train_predicteds, y_train)
-                avg_continuous = np.array(avg_predicted, copy=True)
-                avg_train_continuous = np.array(train_avg_predicted, copy=True)
+            clf_continuous.fit(clf_train_predicteds, y_train)
+            avg_continuous = np.array(avg_predicted, copy=True)
+            avg_train_continuous = np.array(train_avg_predicted, copy=True)
 
-                for i in range(len(avg_continuous)):
-                    avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
-                
-                for i in range(len(avg_train_continuous)):
-                    avg_train_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
+            for i in range(len(avg_continuous)):
+                avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+            
+            for i in range(len(avg_train_continuous)):
+                avg_train_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
 
-                joblib.dump(clf_continuous, 'svm_cont.pkl') 
-                print('EVALUATE WITH continuous values and SVM')
-                del clf_continuous
-                gc.collect()
+            joblib.dump(clf_continuous, 'svm_cont.pkl') 
+            print('EVALUATE WITH continuous values and SVM')
+            del clf_continuous
+            gc.collect()
 
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_continuous, y_test)
-                
-                sensitivities_svm.append(recall)
-                specificities_svm.append(specificity)
-                fars_svm.append(fpr)
-                mdrs_svm.append(fnr)
-                accuracies_svm.append(accuracy)
-           
-                print('TRAIN WITH continuous values and SVM')
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_train_continuous, y_train)
-                taccuracies_svm.append(accuracy)
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_continuous, y_test)
+            
+            sensitivities_svm.append(recall)
+            specificities_svm.append(specificity)
+            fars_svm.append(fpr)
+            mdrs_svm.append(fnr)
+            accuracies_svm.append(accuracy)
+       
+            print('TRAIN WITH continuous values and SVM')
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_train_continuous, y_train)
+            taccuracies_svm.append(accuracy)
 
         sensitivities_best = []
         specificities_best = []
@@ -409,7 +413,7 @@ class Train:
                 mdrs_best.append(mdrs_avg_svm[i])
             elif v == 5:
                 print("SVM IS BEST")
-                sensitivities_best.append(sensitivities_avg_svm[i])
+                sensitivities_best.append(sensitivities_svm[i])
                 sensitivities_best.append(sensitivities_svm[i])
                 specificities_best.append(specificities_svm[i])
                 accuracies_best.append(accuracies_svm[i])
@@ -443,7 +447,7 @@ class Train:
                predicted[i] = 1
        #  Array of predictions 0/1
 
-       self.evaluate(predicted, _y2)
+       return self.evaluate(predicted, _y2)
 
     def evaluate(self, predicted, _y2):
 
@@ -458,10 +462,16 @@ class Train:
         fpr = fp/float(fp+tn)
         fnr = fn/float(fn+tp)
         tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
+        try:
+            precision = tp/float(tp+fp)
+        except ZeroDivisionError:
+            precision = 1.0
         recall = tp/float(tp+fn)
         specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
+        try:
+            f1 = 2*float(precision*recall)/float(precision+recall)
+        except ZeroDivisionError:
+            f1 = 1.0
         accuracy = accuracy_score(_y2, predicted)
 
         print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
