@@ -348,15 +348,18 @@ class Train:
         best_acc = -1
         v = -1
         for i in range(nsplits):
-            if taccuracies_t[i] > best_acc:
-                best_acc = taccuracies_t[i]
-                v = 0
-            if taccuracies_s[i] > best_acc:
-                best_acc = taccuracies_s[i]
-                v = 1
-            if taccuracies_p[i] > best_acc:
-                best_acc = taccuracies_p[i]
-                v = 2
+            if 'temporal' in streams:
+                if taccuracies_t[i] > best_acc:
+                    best_acc = taccuracies_t[i]
+                    v = 0
+            if 'spatial' in streams:
+                if taccuracies_s[i] > best_acc:
+                    best_acc = taccuracies_s[i]
+                    v = 1
+            if 'pose' in streams:
+                if taccuracies_p[i] > best_acc:
+                    best_acc = taccuracies_p[i]
+                    v = 2
             if taccuracies_avg[i] > best_acc:
                 best_acc = taccuracies_avg[i]
                 v = 3
@@ -404,7 +407,7 @@ class Train:
                 mdrs_best.append(mdrs_avg_svm[i])
             elif v == 5:
                 print("SVM IS BEST")
-                sensitivities_best.append(sensitivities_avg_svm[i])
+                sensitivities_best.append(sensitivities_svm[i])
                 sensitivities_best.append(sensitivities_svm[i])
                 specificities_best.append(specificities_svm[i])
                 accuracies_best.append(accuracies_svm[i])
