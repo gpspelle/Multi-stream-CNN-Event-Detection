@@ -192,10 +192,11 @@ class Train:
                     all1 = np.random.choice(all1, len(all0), replace=False)
                 else:
                     all0 = np.random.choice(all0, len(all1), replace=False)
-                    allin = np.concatenate((all0.flatten(),all1.flatten()))
-                    allin.sort()
-                    X_train = X_train[allin,...]
-                    y_train = y_train[allin]
+
+                allin = np.concatenate((all0.flatten(),all1.flatten()))
+                allin.sort()
+                X_train = X_train[allin,...]
+                y_train = y_train[allin]
 
                 classifier = self.set_classifier_vgg16()
                 class_weight = {0: self.weight_0, 1: 1}

@@ -191,13 +191,13 @@ class Train:
 
                 X_train, X_test, y_train, y_test = self.video_cam_split(stream, cams, camera)
 
-                all0 = np.asarray(np.where(y_train==0)[0])
-                all1 = np.asarray(np.where(y_train==1)[0])
-                all1 = np.random.choice(all1, len(all0), replace=False)
-                allin = np.concatenate((all0.flatten(),all1.flatten()))
-                allin.sort()
-                X_train = np.asarray(X_train[allin,...])
-                y_train = np.asarray(y_train[allin])
+                #all0 = np.asarray(np.where(y_train==0)[0])
+                #all1 = np.asarray(np.where(y_train==1)[0])
+                #all1 = np.random.choice(all1, len(all0), replace=False)
+                #allin = np.concatenate((all0.flatten(),all1.flatten()))
+                #allin.sort()
+                #X_train = np.asarray(X_train[allin,...])
+                #y_train = np.asarray(y_train[allin])
 
                 print("###### Data divided in train and test")
                 # ==================== TRAINING ========================     
