@@ -50,7 +50,7 @@ from matplotlib import pyplot as plt
 class Train:
 
     def __init__(self, threshold, epochs, learning_rate, 
-    weights, mini_batch_size, id, batch_norm):
+    weight, mini_batch_size, id, batch_norm):
 
         '''
             Necessary parameters to train
@@ -69,14 +69,115 @@ class Train:
         self.sliding_height = 10
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.weights = weights
+        self.weight_0 = weight
         self.mini_batch_size = mini_batch_size
         self.batch_norm = batch_norm 
 
+    def calc_result(self, streams, y_test, y_train, predicteds, 
+                    train_predicteds, taccuracies_t, taccuracies_s, ):
+
+        avg_predicted = np.zeros(len(y_test), dtype=np.float)
+        train_avg_predicted = np.zeros(len(y_train), dtype=np.float)
+        clf_train_predicteds = np.zeros((len(y_train), len(streams)))
+
+        for j in range(len(y_test)):
+            for i in range(len(streams)):
+                avg_predicted[j] += predicteds[i][j] 
+            
+            avg_predicted[j] /= (len(streams))
+
+        for j in range(len(y_train)):
+            for i in range(len(streams)):
+                train_avg_predicted[j] += train_predicteds[i][j] 
+
+            train_avg_predicted[j] /= (len(streams))
+         
+        for j in range(len(y_train)):
+            clf_train_predicteds[j] = [item[j] for item in train_predicteds]
+        
+####
+####        TREINAMENTO COM TRESHOLD E MEDIA
+####
+
+        print('EVALUATE WITH average and threshold')
+        tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(avg_predicted, copy=True), y_test)
+
+        sensitivities_avg.append(recall)
+        specificities_avg.append(specificity)
+        fars_avg.append(fpr)
+        mdrs_avg.append(fnr)
+        accuracies_avg.append(accuracy)
+
+        print('TRAIN WITH average and threshold')
+        tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(train_avg_predicted, copy=True), y_train)
+
+        taccuracies_avg.append(accuracy)
+
+        class_weight = {0: self.weight_0, 1: 1}
+        clf_avg = svm.SVC(class_weight=class_weight)                                                                 
+        clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
+        for i in range(len(avg_predicted)):
+            avg_predicted[i] = clf_avg.predict(avg_predicted[i])
+
+        joblib.dump(clf_avg, 'svm_avg.pkl') 
+
+        del clf_avg
+        gc.collect()
+
+####
+####        TREINAMENTO COM MEDIA E SVM
+####
+
+        print('EVALUATE WITH average and SVM')
+        tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_predicted, y_test)
+
+        sensitivities_avg_svm.append(recall)
+        specificities_avg_svm.append(specificity)
+        fars_avg_svm.append(fpr)
+        mdrs_avg_svm.append(fnr)
+        accuracies_avg_svm.append(accuracy)
+        
+        print('TRAIN WITH average and SVM')
+        tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(train_avg_predicted, y_train)
+        taccuracies_avg_svm.append(accuracy)
+
+
+####
+####        TREINAMENTO CONTINUO E SVM
+####
+
+        clf_continuous = svm.SVC(class_weight=class_weight)
+
+        clf_continuous.fit(clf_train_predicteds, y_train)
+       
+        avg_continuous = np.array(avg_predicted, copy=True)
+        avg_train_continuous = np.array(train_avg_predicted, copy=True)
+
+        for i in range(len(avg_continuous)):
+            avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+        
+        for i in range(len(avg_train_continuous)):
+            avg_train_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
+
+        joblib.dump(clf_continuous, 'svm_cont.pkl') 
+        print('EVALUATE WITH continuous values and SVM')
+        tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_continuous, y_test)
+        
+        sensitivities_svm.append(recall)
+        specificities_svm.append(specificity)
+        fars_svm.append(fpr)
+        mdrs_svm.append(fnr)
+        accuracies_svm.append(accuracy)
+        
+        print('TRAIN WITH continuous values and SVM')
+        tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_train_continuous, y_train)
+        taccuracies_svm.append(accuracy)
+
+        del clf_continuous
+        gc.collect()
+
     def real_cross_train(self, streams, nsplits):
 
-
-        self.weight_0 = self.weights[0]
         h5features = h5py.File('temporal_features_' + self.id + '.h5', 'r')
         h5labels = h5py.File('temporal_labels_' + self.id + '.h5', 'r')
         h5samples = h5py.File('temporal_samples_' + self.id + '.h5', 'r')
@@ -92,9 +193,9 @@ class Train:
         ones.sort()
                                          
         # Use a 5 fold cross-validation
-        kf_falls = KFold(n_splits=nsplits, random_state=1)
+        kf_falls = KFold(n_splits=nsplits, shuffle=True)
         kf_falls.get_n_splits(all_features[zeroes, ...])
-        kf_nofalls = KFold(n_splits=nsplits, random_state=1)
+        kf_nofalls = KFold(n_splits=nsplits, shuffle=True)
         kf_nofalls.get_n_splits(all_features[ones, ...]) 
 
         taccuracies_t = []
@@ -143,20 +244,6 @@ class Train:
         fold = 0
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
         for (train_index_falls, test_index_falls), (train_index_nofalls, test_index_nofalls) in zip(kf_falls.split(all_features[zeroes, ...]), kf_nofalls.split(all_features[ones, ...])):
-
-            fold += 1
-
-            if fold == 5:
-                kf_falls = KFold(n_splits=nsplits, random_state=1000)
-                kf_falls.get_n_splits(all_features[zeroes, ...])
-                kf_nofalls = KFold(n_splits=nsplits, random_state=1000)
-                kf_nofalls.get_n_splits(all_features[ones, ...]) 
-               
-                cont = 0
-                for (train_index_falls, test_index_falls), (train_index_nofalls, test_index_nofalls) in zip(kf_falls.split(all_features[zeroes, ...]), kf_nofalls.split(all_features[ones, ...])):
-                    cont += 1
-                    if cont == 2:
-                        break
 
             K.clear_session()
             train_index_falls = np.asarray(train_index_falls)
@@ -253,92 +340,10 @@ class Train:
                     taccuracies_p.append(accuracy)
                 elif stream == 'spatial':
                     taccuracies_s.append(accuracy)
-                 
-            avg_predicted = np.zeros(len(y_test), dtype=np.float)
-            train_avg_predicted = np.zeros(len(y_train), dtype=np.float)
-            clf_train_predicteds = np.zeros((len(y_train), len(streams)))
-
-            for j in range(len(y_test)):
-                for i in range(len(streams)):
-                    avg_predicted[j] += predicteds[i][j] 
-
-                avg_predicted[j] /= (len(streams))
-
-            for j in range(len(y_train)):
-                for i in range(len(streams)):
-                    train_avg_predicted[j] += train_predicteds[i][j] 
-
-                train_avg_predicted[j] /= (len(streams))
-             
-            for j in range(len(y_train)):
-                clf_train_predicteds[j] = [item[j] for item in train_predicteds]
             
-            print('EVALUATE WITH average and threshold')
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(avg_predicted, copy=True), y_test)
-
-            sensitivities_avg.append(recall)
-            specificities_avg.append(specificity)
-            fars_avg.append(fpr)
-            mdrs_avg.append(fnr)
-            accuracies_avg.append(accuracy)
-
-            print('TRAIN WITH average and threshold')
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(train_avg_predicted, copy=True), y_train)
-
-            taccuracies_avg.append(accuracy)
-
-            class_weight = {0: self.weight_0, 1: 1}
-            clf_avg = svm.SVC(class_weight=class_weight)                                                                 
-            clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
-            for i in range(len(avg_predicted)):
-                avg_predicted[i] = clf_avg.predict(avg_predicted[i])
-
-            joblib.dump(clf_avg, 'svm_avg.pkl') 
-
-            del clf_avg
-            gc.collect()
-
-            print('EVALUATE WITH average and SVM')
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_predicted, y_test)
-
-            sensitivities_avg_svm.append(recall)
-            specificities_avg_svm.append(specificity)
-            fars_avg_svm.append(fpr)
-            mdrs_avg_svm.append(fnr)
-            accuracies_avg_svm.append(accuracy)
-            
-            print('TRAIN WITH average and SVM')
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(train_avg_predicted, y_train)
-            taccuracies_avg_svm.append(accuracy)
-
-            clf_continuous = svm.SVC(class_weight=class_weight)
-
-            clf_continuous.fit(clf_train_predicteds, y_train)
-            avg_continuous = np.array(avg_predicted, copy=True)
-            avg_train_continuous = np.array(train_avg_predicted, copy=True)
-
-            for i in range(len(avg_continuous)):
-                avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
-            
-            for i in range(len(avg_train_continuous)):
-                avg_train_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
-
-            joblib.dump(clf_continuous, 'svm_cont.pkl') 
-            print('EVALUATE WITH continuous values and SVM')
-            del clf_continuous
-            gc.collect()
-
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_continuous, y_test)
-            
-            sensitivities_svm.append(recall)
-            specificities_svm.append(specificity)
-            fars_svm.append(fpr)
-            mdrs_svm.append(fnr)
-            accuracies_svm.append(accuracy)
-       
-            print('TRAIN WITH continuous values and SVM')
-            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_train_continuous, y_train)
-            taccuracies_svm.append(accuracy)
+            of_pose = self.calc_result(['temporal', 'pose'])
+            of_spa = self.calc_result(['temporal', 'spatial'])
+            pose_spa = self.calc_result(['pose', 'spatial'])
 
         sensitivities_best = []
         specificities_best = []
@@ -418,19 +423,19 @@ class Train:
         self.print_result('TEMPORAL', sensitivities_t, specificities_t,fars_t, mdrs_t, accuracies_t)
         self.print_result('SPATIAL', sensitivities_s, specificities_s,fars_s, mdrs_s, accuracies_s)
         self.print_result('POSE', sensitivities_p, specificities_p, fars_p, mdrs_p, accuracies_p)
-        self.print_result('AVG', sensitivities_avg, specificities_avg, fars_avg, mdrs_avg, accuracies_avg)
-        self.print_result('AVG_SVM', sensitivities_avg_svm, specificities_avg_svm, fars_avg_svm, mdrs_avg_svm, accuracies_avg_svm)
-        self.print_result('SVM', sensitivities_svm, specificities_svm, fars_svm, mdrs_svm, accuracies_svm)
-        self.print_result('BEST', sensitivities_best, specificities_best, fars_best, mdrs_best, accuracies_best)
+        self.print_result('3-stream AVG', sensitivities_avg, specificities_avg, fars_avg, mdrs_avg, accuracies_avg)
+        self.print_result('3-stream AVG_SVM', sensitivities_avg_svm, specificities_avg_svm, fars_avg_svm, mdrs_avg_svm, accuracies_avg_svm)
+        self.print_result('3-stream SVM', sensitivities_svm, specificities_svm, fars_svm, mdrs_svm, accuracies_svm)
+        self.print_result('3-stream BEST', sensitivities_best, specificities_best, fars_best, mdrs_best, accuracies_best)
 
     def print_result(self, proc, sensitivities, specificities, fars, mdrs, accuracies):
 
         print('5-FOLD CROSS-VALIDATION RESULTS ' + proc + '===================')
-        print("Sensitivity: %.2f%% (+/- %.2f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
-        print("Specificity: %.2f%% (+/- %.2f%%)" % (np.mean(specificities), np.std(specificities)))
-        print("FAR: %.2f%% (+/- %.2f%%)" % (np.mean(fars), np.std(fars)))
-        print("MDR: %.2f%% (+/- %.2f%%)" % (np.mean(mdrs), np.std(mdrs)))
-        print("Accuracy: %.2f%% (+/- %.2f%%)" % (np.mean(accuracies), np.std(accuracies)))
+        print("Sensitivity: %.4f%% (+/- %.4f%%)" % (np.mean(sensitivities), np.std(sensitivities)))
+        print("Specificity: %.4f%% (+/- %.4f%%)" % (np.mean(specificities), np.std(specificities)))
+        print("FAR: %.4f%% (+/- %.4f%%)" % (np.mean(fars), np.std(fars)))
+        print("MDR: %.4f%% (+/- %.4f%%)" % (np.mean(mdrs), np.std(mdrs)))
+        print("Accuracy: %.4f%% (+/- %.4f%%)" % (np.mean(accuracies), np.std(accuracies)))
 
     def cross_train(self, streams, nsplits):
 
@@ -622,12 +627,6 @@ class Train:
         test_size = 0.2
         train_videos, test_videos = self.video_random_generator(streams[0], test_size)
         for stream in streams:
-
-            if stream == 'pose' or stream == 'spatial':
-                self.weight_0 = self.weights[0]
-            else:
-                self.weight_0 = self.weights[1]
-        
 
             if VGG16:
                 classifier = self.set_classifier_vgg16()
@@ -970,7 +969,7 @@ if __name__ == '__main__':
             help='Usage: -ep <num_of_epochs>', required=True)
     argp.add_argument("-lr", dest='lr', type=float, nargs=1,
             help='Usage: -lr <learning_rate_value>', required=True)
-    argp.add_argument("-w0", dest='w0', type=float, nargs='+',
+    argp.add_argument("-w0", dest='w0', type=float, nargs='1',
             help='Usage: -w0 <weight_for_fall_class>', required=True)
     argp.add_argument("-mini_batch", dest='mini_batch', type=int, nargs=1,
             help='Usage: -mini_batch <mini_batch_size>', required=True)
@@ -989,10 +988,10 @@ if __name__ == '__main__':
         exit(1)
 
     train = Train(args.thresh[0], args.ep[0], args.lr[0], 
-            args.w0, args.mini_batch[0], args.id[0], args.batch_norm[0])
+            args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0])
 
     args.streams.sort()
-    random.seed(42)
+    random.seed(1)
     if args.actions[0] == 'train':
         train.train(args.streams)
     elif args.actions[0] == 'cross-train':
@@ -1015,10 +1014,6 @@ if __name__ == '__main__':
 
 '''
     todo: criar excecoes para facilitar o uso
-'''
-
-'''
-    todo: use model parameter to load model for training
 '''
 
 '''
