@@ -19,6 +19,7 @@ from keras.models import Model, load_model
 from keras.layers.advanced_activations import ELU
 from datetime import datetime
 import matplotlib
+import itertools
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
@@ -73,8 +74,40 @@ class Train:
         self.mini_batch_size = mini_batch_size
         self.batch_norm = batch_norm 
 
-    def calc_result(self, streams, y_test, y_train, predicteds, 
-                    train_predicteds, taccuracies_t, taccuracies_s, ):
+###     Number of streams for each combination
+
+        num_streams = dict()
+
+
+###     This three dicts are to see which strategy gives best results in
+###     training stage
+
+        taccuracies_avg = dict()
+        taccuracies_avg_svm = dict()
+        taccuracies_svm = dict()
+
+###     This others dicts will give the parameters to all strategies
+
+        sensitivities_svm = dict()
+        specificities_svm = dict()
+        fars_svm = dict()
+        mdrs_svm = dict()
+        accuracies_svm = dict()
+
+        sensitivities_avg = dict()
+        specificities_avg = dict()
+        fars_avg = dict()
+        mdrs_avg = dict()
+        accuracies_avg = dict()
+                    
+        sensitivities_avg_svm = dict()
+        specificities_avg_svm = dict()
+        fars_avg_svm = dict()
+        mdrs_avg_svm = dict()
+        accuracies_avg_svm = dict()]
+
+    def calc_metrics(self, streams, y_test, y_train, test_predicteds, 
+                    train_predicteds, key):
 
         avg_predicted = np.zeros(len(y_test), dtype=np.float)
         train_avg_predicted = np.zeros(len(y_train), dtype=np.float)
@@ -102,16 +135,20 @@ class Train:
         print('EVALUATE WITH average and threshold')
         tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(avg_predicted, copy=True), y_test)
 
-        sensitivities_avg.append(recall)
-        specificities_avg.append(specificity)
-        fars_avg.append(fpr)
-        mdrs_avg.append(fnr)
-        accuracies_avg.append(accuracy)
+        self.sensitivities_avg[key].append(recall)
+        self.specificities_avg[key].append(specificity)
+        self.fars_avg[key].append(fpr)
+        self.mdrs_avg[key].append(fnr)
+        self.accuracies_avg[key].append(accuracy)
 
         print('TRAIN WITH average and threshold')
         tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(np.array(train_avg_predicted, copy=True), y_train)
 
-        taccuracies_avg.append(accuracy)
+        self.taccuracies_avg[key].append(accuracy)
+
+####
+####        TREINAMENTO COM MEDIA E SVM
+####
 
         class_weight = {0: self.weight_0, 1: 1}
         clf_avg = svm.SVC(class_weight=class_weight)                                                                 
@@ -124,22 +161,18 @@ class Train:
         del clf_avg
         gc.collect()
 
-####
-####        TREINAMENTO COM MEDIA E SVM
-####
-
         print('EVALUATE WITH average and SVM')
         tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_predicted, y_test)
 
-        sensitivities_avg_svm.append(recall)
-        specificities_avg_svm.append(specificity)
-        fars_avg_svm.append(fpr)
-        mdrs_avg_svm.append(fnr)
-        accuracies_avg_svm.append(accuracy)
+        self.sensitivities_avg_svm[key].append(recall)
+        self.specificities_avg_svm[key].append(specificity)
+        self.fars_avg_svm[key].append(fpr)
+        self.mdrs_avg_svm[key].append(fnr)
+        self.accuracies_avg_svm[key].append(accuracy)
         
         print('TRAIN WITH average and SVM')
         tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(train_avg_predicted, y_train)
-        taccuracies_avg_svm.append(accuracy)
+        self.taccuracies_avg_svm[key].append(accuracy)
 
 
 ####
@@ -163,15 +196,15 @@ class Train:
         print('EVALUATE WITH continuous values and SVM')
         tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_continuous, y_test)
         
-        sensitivities_svm.append(recall)
-        specificities_svm.append(specificity)
-        fars_svm.append(fpr)
-        mdrs_svm.append(fnr)
-        accuracies_svm.append(accuracy)
+        self.sensitivities_svm[key].append(recall)
+        self.specificities_svm[key].append(specificity)
+        self.fars_svm[key].append(fpr)
+        self.mdrs_svm[key].append(fnr)
+        self.accuracies_svm[key].append(accuracy)
         
         print('TRAIN WITH continuous values and SVM')
         tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate(avg_train_continuous, y_train)
-        taccuracies_svm.append(accuracy)
+        self.taccuracies_svm[key].append(accuracy)
 
         del clf_continuous
         gc.collect()
@@ -198,50 +231,39 @@ class Train:
         kf_nofalls = KFold(n_splits=nsplits, shuffle=True)
         kf_nofalls.get_n_splits(all_features[ones, ...]) 
 
-        taccuracies_t = []
-        taccuracies_s = []
-        taccuracies_p = []
-        taccuracies_avg = []
-        taccuracies_avg_svm = []
-        taccuracies_svm = []
+        streams_combinations = []
+        for L in range(0, len(streams)+1):
+            for subset in itertools.combinations(streams, L):
+                if len(list(subset)) != 0:
+                    streams_combinations(list(subset))
 
-        sensitivities_t = []
-        specificities_t = []
-        fars_t = []
-        mdrs_t = []
-        accuracies_t = []
+        for comb in streams_combinations:
+            key = ''.join(comb)
+            
+            num_streams[key] = len(comb)
 
-        sensitivities_p = []
-        specificities_p = []
-        fars_p = []
-        mdrs_p = []
-        accuracies_p = []
+            taccuracies_avg[key] = []
+            taccuracies_avg_svm[key] = []
+            taccuracies_svm[key] = []
 
-        sensitivities_s = []
-        specificities_s = []
-        fars_s = []
-        mdrs_s = []
-        accuracies_s = []
+            sensitivities_svm[key] = []
+            specificities_svm[key] = []
+            fars_svm[key] = []
+            mdrs_svm[key] = []
+            accuracies_svm[key] = []
 
-        sensitivities_svm = []
-        specificities_svm = []
-        fars_svm = []
-        mdrs_svm = []
-        accuracies_svm = []
+            sensitivities_avg[key] = []
+            specificities_avg[key] = []
+            fars_avg[key] = []
+            mdrs_avg[key] = []
+            accuracies_avg[key] = []
+                        
+            sensitivities_avg_svm[key] = []
+            specificities_avg_svm[key] = []
+            fars_avg_svm[key] = []
+            mdrs_avg_svm[key] = []
+            accuracies_avg_svm[key] = []
 
-        sensitivities_avg = []
-        specificities_avg = []
-        fars_avg = []
-        mdrs_avg = []
-        accuracies_avg = []
-                    
-        sensitivities_avg_svm = []
-        specificities_avg_svm = []
-        fars_avg_svm = []
-        mdrs_avg_svm = []
-        accuracies_avg_svm = []
-
-        fold = 0
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
         for (train_index_falls, test_index_falls), (train_index_nofalls, test_index_nofalls) in zip(kf_falls.split(all_features[zeroes, ...]), kf_nofalls.split(all_features[ones, ...])):
 
@@ -256,8 +278,6 @@ class Train:
             train_index.sort()
             test_index.sort()
 
-            predicteds = []
-            train_predicteds = []
             for stream in streams:
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
                 h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
@@ -303,130 +323,141 @@ class Train:
                 self.plot_training_info(exp, ['accuracy', 'loss'], True, 
                                    history.history)
 
-                classifier.save('temporal_classifier_' + self.id + '.h5')
-                predicted = np.asarray(classifier.predict(np.asarray(X_test)))
+                classifier.save(stream + '_classifier_' + self.id + '.h5')
+                #predicted = np.asarray(classifier.predict(np.asarray(X_test)))
+                #train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
+
+                #predicteds.append(predicted)
+                #train_predicteds.append(train_predicted)
+                
+                #print('EVALUATE WITH ' + stream)
+                #tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(predicted, y_test)
+
+                #if stream=='temporal':
+                #    sensitivities_t.append(recall)
+                #    specificities_t.append(specificity)
+                #    fars_t.append(fpr)
+                #    mdrs_t.append(fnr)
+                #    accuracies_t.append(accuracy)
+                #elif stream == 'pose':
+                #    sensitivities_p.append(recall)
+                #    specificities_p.append(specificity)
+                #    fars_p.append(fpr)
+                #    mdrs_p.append(fnr)
+                #    accuracies_p.append(accuracy)
+                #elif stream == 'spatial':
+                #    sensitivities_s.append(recall)
+                #    specificities_s.append(specificity)
+                #    fars_s.append(fpr)
+                #    mdrs_s.append(fnr)
+                #    accuracies_s.append(accuracy)
+                
+                #print('TRAIN WITH ' + stream)
+                #tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(train_predicted, y_train)
+                #if stream=='temporal':
+                #    taccuracies_t.append(accuracy)
+                #elif stream == 'pose':
+                #    taccuracies_p.append(accuracy)
+                #elif stream == 'spatial':
+                #    taccuracies_s.append(accuracy)
+            
+            
+            test_predicteds = dict()
+            train_predicteds = dict()
+            
+            for comb in stream_combinations:
+                key = ''.join(comb)
+                test_predicteds[key] = []
+                train_predicteds[key] = []
+
+            for stream in streams:
+                classifier = load_model(stream + '_classifier_' + self.id + '.h5')
+                test_predicted = np.asarray(classifier.predict(np.asarray(X_test)))
                 train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
 
-                predicteds.append(predicted)
-                train_predicteds.append(train_predicted)
-                
-                print('EVALUATE WITH ' + stream)
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(predicted, y_test)
+                for key in list(test_predicteds.keys()):
+                    if stream in key:
+                        test_predicteds[key].append(test_predicted)
+                        train_predicteds[key].append(train_predicted)
 
-                if stream=='temporal':
-                    sensitivities_t.append(recall)
-                    specificities_t.append(specificity)
-                    fars_t.append(fpr)
-                    mdrs_t.append(fnr)
-                    accuracies_t.append(accuracy)
-                elif stream == 'pose':
-                    sensitivities_p.append(recall)
-                    specificities_p.append(specificity)
-                    fars_p.append(fpr)
-                    mdrs_p.append(fnr)
-                    accuracies_p.append(accuracy)
-                elif stream == 'spatial':
-                    sensitivities_s.append(recall)
-                    specificities_s.append(specificity)
-                    fars_s.append(fpr)
-                    mdrs_s.append(fnr)
-                    accuracies_s.append(accuracy)
-                
-                print('TRAIN WITH ' + stream)
-                tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(train_predicted, y_train)
-                if stream=='temporal':
-                    taccuracies_t.append(accuracy)
-                elif stream == 'pose':
-                    taccuracies_p.append(accuracy)
-                elif stream == 'spatial':
-                    taccuracies_s.append(accuracy)
-            
-            of_pose = self.calc_result(['temporal', 'pose'])
-            of_spa = self.calc_result(['temporal', 'spatial'])
-            pose_spa = self.calc_result(['pose', 'spatial'])
-
-        sensitivities_best = []
-        specificities_best = []
-        accuracies_best = []
-        fars_best = []
-        mdrs_best = []
-
-        best_acc = -1
-        v = -1
-        for i in range(nsplits):
-            if 'temporal' in streams:
-                if taccuracies_t[i] > best_acc:
-                    best_acc = taccuracies_t[i]
-                    v = 0
-            if 'spatial' in streams:
-                if taccuracies_s[i] > best_acc:
-                    best_acc = taccuracies_s[i]
-                    v = 1
-            if 'pose' in streams:
-                if taccuracies_p[i] > best_acc:
-                    best_acc = taccuracies_p[i]
-                    v = 2
-            if taccuracies_avg[i] > best_acc:
-                best_acc = taccuracies_avg[i]
-                v = 3
-            if taccuracies_avg_svm[i] > best_acc:
-                best_acc = taccuracies_avg_svm[i]
-                v = 4
-            if taccuracies_svm[i] > best_acc:
-                best_acc = taccuracies_svm[i]
-                v = 5
-
-            if v == 0:
-                print("TEMPORAL IS BEST")
-                sensitivities_best.append(sensitivities_t[i])
-                specificities_best.append(specificities_t[i])
-                accuracies_best.append(accuracies_t[i])
-                fars_best.append(fars_t[i])
-                mdrs_best.append(mdrs_t[i])
-            elif v == 1:
-                print("SPATIAL IS BEST")
-                sensitivities_best.append(sensitivities_s[i])
-                specificities_best.append(specificities_s[i])
-                accuracies_best.append(accuracies_s[i])
-                fars_best.append(fars_s[i])
-                mdrs_best.append(mdrs_s[i])
-            elif v == 2:
-                print("POSE IS BEST")
-                sensitivities_best.append(sensitivities_p[i])
-                specificities_best.append(specificities_p[i])
-                accuracies_best.append(accuracies_p[i])
-                fars_best.append(fars_p[i])
-                mdrs_best.append(mdrs_p[i])
-            elif v == 3:
-                print("AVERAGE IS BEST")
-                sensitivities_best.append(sensitivities_avg[i])
-                specificities_best.append(specificities_avg[i])
-                accuracies_best.append(accuracies_avg[i])
-                fars_best.append(fars_avg[i])
-                mdrs_best.append(mdrs_avg[i])
-            elif v == 4:
-                print("AVERAGE SVM IS BEST")
-                sensitivities_best.append(sensitivities_avg_svm[i])
-                specificities_best.append(specificities_avg_svmt[i])
-                accuracies_best.append(accuracies_avg_svm[i])
-                fars_best.append(fars_avg_svm[i])
-                mdrs_best.append(mdrs_avg_svm[i])
-            elif v == 5:
-                print("SVM IS BEST")
-                sensitivities_best.append(sensitivities_svm[i])
-                sensitivities_best.append(sensitivities_svm[i])
-                specificities_best.append(specificities_svm[i])
-                accuracies_best.append(accuracies_svm[i])
-                fars_best.append(fars_svm[i])
-                mdrs_best.append(mdrs_svm[i])
+            for key in list(test_predicteds.keys()):
+                print('########## TESTS WITH  ' + ' '.join(key))
+                self.calc_metrics(num_streams[key], y_test, y_train, 
+                        test_predicteds[key], train_predicteds[key], key)
         
-        self.print_result('TEMPORAL', sensitivities_t, specificities_t,fars_t, mdrs_t, accuracies_t)
-        self.print_result('SPATIAL', sensitivities_s, specificities_s,fars_s, mdrs_s, accuracies_s)
-        self.print_result('POSE', sensitivities_p, specificities_p, fars_p, mdrs_p, accuracies_p)
-        self.print_result('3-stream AVG', sensitivities_avg, specificities_avg, fars_avg, mdrs_avg, accuracies_avg)
-        self.print_result('3-stream AVG_SVM', sensitivities_avg_svm, specificities_avg_svm, fars_avg_svm, mdrs_avg_svm, accuracies_avg_svm)
-        self.print_result('3-stream SVM', sensitivities_svm, specificities_svm, fars_svm, mdrs_svm, accuracies_svm)
-        self.print_result('3-stream BEST', sensitivities_best, specificities_best, fars_best, mdrs_best, accuracies_best)
+        sensitivities_best = dict()
+        specificities_best = dict()
+        accuracies_best = dict()
+        fars_best = dict()
+        mdrs_best = dict()
+        best_acc = dict()
+        v = dict()
+
+        for comb in stream_combinations:
+            key = ''.join(comb)
+
+            sensitivities_best[key] = []
+            specificities_best[key] = []
+            accuracies_best[key] = []
+            fars_best[key] = []
+            mdrs_best[key] = []
+
+            best_acc[key] = -1 
+            v[key] = -1
+
+        sensitivities_final = []
+        specificities_final = []
+        accuracies_final = []
+        fars_final = []
+        mdrs_final = []
+
+        final_acc = -1
+        final_key = -1
+        final_split = -1
+        for key in list(taccuracies_avg.keys()):
+            print('########## BESTS WITH  ' + ' '.join(key))
+            for i in range(nsplits):
+
+                if taccuracies_avg[key][i] > best_acc[key]:
+                    best_acc[key] = taccuracies_avg[key][i]
+                    v[key] = 0
+                if taccuracies_avg_svm[key][i] > best_acc[key]:
+                    best_acc[key] = taccuracies_avg_svm[key][i]
+                    v[key] = 1
+                if taccuracies_svm[key][i] > best_acc[key]:
+                    best_acc[key] = taccuracies_svm[key][i]
+                    v[key] = 2
+
+                if v[key] == 0:
+
+                    print("AVERAGE IS BEST")
+                    sensitivities_best[key].append(sensitivities_avg[key][i])
+                    specificities_best[key].append(specificities_avg[key][i])
+                    accuracies_best[key].append(accuracies_avg[key][i])
+                    fars_best[key].append(fars_avg[key][i])
+                    mdrs_best[key].append(mdrs_avg[key][i])
+                elif v[key] == 1:
+
+                    print("AVERAGE SVM IS BEST")
+                    sensitivities_best[key].append(sensitivities_avg_svm[key][i])
+                    specificities_best[key].append(specificities_avg_svmt[key][i])
+                    accuracies_best[key].append(accuracies_avg_svm[key][i])
+                    fars_best[key].append(fars_avg_svm[key][i])
+                    mdrs_best[key].append(mdrs_avg_svm[key][i])
+                elif v[key] == 2:
+
+                    print("SVM IS BEST")
+                    sensitivities_best[key].append(sensitivities_svm[key][i])
+                    sensitivities_best[key].append(sensitivities_svm[key][i])
+                    specificities_best[key].append(specificities_svm[key][i])
+                    accuracies_best[key].append(accuracies_svm[key][i])
+                    fars_best[key].append(fars_svm[key][i])
+                    mdrs_best[key].append(mdrs_svm[key][i])
+        
+            self.print_result('3-stream AVG', sensitivities_avg[key], specificities_avg[key], fars_avg[key], mdrs_avg[key], accuracies_avg[key])
+            self.print_result('3-stream AVG_SVM', sensitivities_avg_svm[key], specificities_avg_svm[key], fars_avg_svm[key], mdrs_avg_svm[key], accuracies_avg_svm[key])
+            self.print_result('3-stream SVM', sensitivities_svm[key], specificities_svm[key], fars_svm[key], mdrs_svm[key], accuracies_svm[key])
+            self.print_result('3-stream BEST', sensitivities_best[key], specificities_best[key], fars_best[key], mdrs_best[key], accuracies_best[key])
 
     def print_result(self, proc, sensitivities, specificities, fars, mdrs, accuracies):
 
