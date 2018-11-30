@@ -412,8 +412,7 @@ class Train:
         mdrs_final = []
 
         final_acc = -1
-        final_key = -1
-        final_split = -1
+        final = None
         for key in list(taccuracies_avg.keys()):
             print('########## BESTS WITH  ' + ' '.join(key))
             for i in range(nsplits):
@@ -453,11 +452,17 @@ class Train:
                     accuracies_best[key].append(accuracies_svm[key][i])
                     fars_best[key].append(fars_svm[key][i])
                     mdrs_best[key].append(mdrs_svm[key][i])
+
+            if best_acc[key] > final_acc:
+                final_acc = best_acc[key]
+                final = key
         
             self.print_result('3-stream AVG', sensitivities_avg[key], specificities_avg[key], fars_avg[key], mdrs_avg[key], accuracies_avg[key])
             self.print_result('3-stream AVG_SVM', sensitivities_avg_svm[key], specificities_avg_svm[key], fars_avg_svm[key], mdrs_avg_svm[key], accuracies_avg_svm[key])
             self.print_result('3-stream SVM', sensitivities_svm[key], specificities_svm[key], fars_svm[key], mdrs_svm[key], accuracies_svm[key])
             self.print_result('3-stream BEST', sensitivities_best[key], specificities_best[key], fars_best[key], mdrs_best[key], accuracies_best[key])
+
+        print(' '.join(final))
 
     def print_result(self, proc, sensitivities, specificities, fars, mdrs, accuracies):
 
