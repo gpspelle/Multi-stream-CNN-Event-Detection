@@ -211,10 +211,10 @@ class Train:
 
     def real_cross_train(self, streams, nsplits):
 
-        h5features = h5py.File('temporal_features_' + self.id + '.h5', 'r')
-        h5labels = h5py.File('temporal_labels_' + self.id + '.h5', 'r')
-        h5samples = h5py.File('temporal_samples_' + self.id + '.h5', 'r')
-        h5num = h5py.File('temporal_num_' + self.id + '.h5', 'r')
+        h5features = h5py.File(streams[0] + '_features_' + self.id + '.h5', 'r')
+        h5labels = h5py.File(streams[0] + '_labels_' + self.id + '.h5', 'r')
+        h5samples = h5py.File(streams[0] + '_samples_' + self.id + '.h5', 'r')
+        h5num = h5py.File(streams[0] + '_num_' + self.id + '.h5', 'r')
         all_features = h5features[self.features_key]
         all_labels = np.asarray(h5labels[self.labels_key])
         all_samples = np.asarray(h5samples[self.samples_key])
@@ -855,10 +855,17 @@ class Train:
         fpr = fp/float(fp+tn)
         fnr = fn/float(fn+tp)
         tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
+        try:
+            precision = tp/float(tp+fp)
+        except ZeroDivisionError:
+            precision = 1.0
         recall = tp/float(tp+fn)
         specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
+        try:
+            f1 = 2*float(precision*recall)/float(precision+recall)
+        except ZeroDivisionError:
+            f1 = 1.0
+
         accuracy = accuracy_score(_y2, predicted)
 
         print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
@@ -870,7 +877,7 @@ class Train:
         print('Accuracy: {}'.format(accuracy))
 
         # Store the metrics for this epoch
-        return tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy 
+        return tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy
 
     def set_classifier_resnet50(self):
         extracted_features = Input(shape=(self.num_features,), dtype='float32',
