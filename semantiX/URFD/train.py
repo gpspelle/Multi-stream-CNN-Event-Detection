@@ -213,12 +213,8 @@ class Train:
 
         h5features = h5py.File(streams[0] + '_features_' + self.id + '.h5', 'r')
         h5labels = h5py.File(streams[0] + '_labels_' + self.id + '.h5', 'r')
-        h5samples = h5py.File(streams[0] + '_samples_' + self.id + '.h5', 'r')
-        h5num = h5py.File(streams[0] + '_num_' + self.id + '.h5', 'r')
         all_features = h5features[self.features_key]
         all_labels = np.asarray(h5labels[self.labels_key])
-        all_samples = np.asarray(h5samples[self.samples_key])
-        all_num = np.asarray(h5num[self.num_key])
 
         zeroes = np.asarray(np.where(all_labels==0)[0])
         ones = np.asarray(np.where(all_labels==1)[0])
@@ -281,12 +277,8 @@ class Train:
             for stream in streams:
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
                 h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
-                h5samples = h5py.File(stream + '_samples_' + self.id + '.h5', 'r')
-                h5num = h5py.File(stream + '_num_' + self.id + '.h5', 'r')
                 all_features = h5features[self.features_key]
                 all_labels = np.asarray(h5labels[self.labels_key])
-                all_samples = np.asarray(h5samples[self.samples_key])
-                all_num = np.asarray(h5num[self.num_key])
 
                 X_train = np.concatenate((all_features[train_index_falls, ...], all_features[train_index_nofalls, ...]))
                 y_train = np.concatenate((all_labels[train_index_falls, ...], all_labels[train_index_nofalls, ...]))
@@ -324,6 +316,8 @@ class Train:
                                    history.history)
 
                 classifier.save(stream + '_classifier_' + self.id + '.h5')
+                h5features.close()
+                h5labels.close()
                 #predicted = np.asarray(classifier.predict(np.asarray(X_test)))
                 #train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
 
@@ -371,7 +365,29 @@ class Train:
                 train_predicteds[key] = []
 
             for stream in streams:
+                h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
+                h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
+                all_features = h5features[self.features_key]
+                all_labels = np.asarray(h5labels[self.labels_key])
                 classifier = load_model(stream + '_classifier_' + self.id + '.h5')
+
+                X_train = np.concatenate((all_features[train_index_falls, ...], all_features[train_index_nofalls, ...]))
+                y_train = np.concatenate((all_labels[train_index_falls, ...], all_labels[train_index_nofalls, ...]))
+                X_test = np.concatenate((all_features[test_index_falls, ...], all_features[test_index_nofalls, ...]))
+                y_test = np.concatenate((all_labels[test_index_falls, ...], all_labels[test_index_nofalls, ...]))   
+                # Balance the number of positive and negative samples so that there is the same amount of each of them
+                all0 = np.asarray(np.where(y_train==0)[0])
+                all1 = np.asarray(np.where(y_train==1)[0])  
+                if len(all0) < len(all1):
+                    all1 = np.random.choice(all1, len(all0), replace=False)
+                else:
+                    all0 = np.random.choice(all0, len(all1), replace=False)
+
+                allin = np.concatenate((all0.flatten(),all1.flatten()))
+                allin.sort()
+                X_train = X_train[allin,...]
+                y_train = y_train[allin]
+
                 test_predicted = np.asarray(classifier.predict(np.asarray(X_test)))
                 train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
 
@@ -379,6 +395,9 @@ class Train:
                     if stream in key:
                         test_predicteds[key].append(test_predicted)
                         train_predicteds[key].append(train_predicted)
+
+                h5features.close()
+                h5labels.close()
 
             for key in list(test_predicteds.keys()):
                 print('########## TESTS WITH  ' + ''.join(key))

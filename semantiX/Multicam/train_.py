@@ -383,6 +383,7 @@ class Train:
                 train_predicteds[key] = []
 
             for stream in streams:
+                X_train, X_test, y_train, y_test = self.video_cam_split(stream, cams, camera)
                 classifier = load_model(stream + '_classifier_' + self.id + '.h5')
                 test_predicted = np.asarray(classifier.predict(np.asarray(X_test)))
                 train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
