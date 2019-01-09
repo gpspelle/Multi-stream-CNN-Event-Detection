@@ -215,7 +215,8 @@ class Train:
 
         c_train = 0
         c_test = 0
-        for c in self.classes:
+        classes = ['Falls', 'NotFalls']
+        for c in classes:
             for cam in cams:
                 tam = len(list(f[c][cam][cam]))
                 if cam == camera:
@@ -230,7 +231,7 @@ class Train:
 
         c_test = 0
         c_train = 0
-        for c in self.classes:
+        for c in classes:
             for cam in cams:
                 tam = len(list(f[c][cam][cam]))
                 if cam == camera:
@@ -250,20 +251,6 @@ class Train:
     def real_cross_train(self, streams):
         cams = ['cam1', 'cam2', 'cam3', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
 
-        h5features = h5py.File('temporal_features_' + self.id + '.h5', 'r')
-        h5labels = h5py.File('temporal_labels_' + self.id + '.h5', 'r')
-        h5samples = h5py.File('temporal_samples_' + self.id + '.h5', 'r')
-        h5num = h5py.File('temporal_num_' + self.id + '.h5', 'r')
-        all_features = h5features[self.features_key]
-        all_labels = np.asarray(h5labels[self.labels_key])
-        all_samples = np.asarray(h5samples[self.samples_key])
-        all_num = np.asarray(h5num[self.num_key])
-
-        zeroes = np.asarray(np.where(all_labels==0)[0])
-        ones = np.asarray(np.where(all_labels==1)[0])
-        zeroes.sort()
-        ones.sort()
-                                         
         streams_combinations = []
         for L in range(0, len(streams)+1):
             for subset in itertools.combinations(streams, L):
@@ -428,7 +415,7 @@ class Train:
         final = None
         for key in list(self.taccuracies_avg.keys()):
             print('########## BESTS WITH  ' + ''.join(key))
-            for i in range(nsplits):
+            for i in range(8):
 
                 if self.taccuracies_avg[key][i] > best_acc[key]:
                     best_acc[key] = self.taccuracies_avg[key][i]
@@ -868,10 +855,17 @@ class Train:
         fpr = fp/float(fp+tn)
         fnr = fn/float(fn+tp)
         tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
+        try:
+            precision = tp/float(tp+fp)
+        except ZeroDivisionError:
+            precision = 1.0
         recall = tp/float(tp+fn)
         specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
+        try:
+            f1 = 2*float(precision*recall)/float(precision+recall)
+        except ZeroDivisionError:
+            f1 = 1.0
+        
         accuracy = accuracy_score(_y2, predicted)
 
         print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
@@ -991,11 +985,6 @@ if __name__ == '__main__':
     print("             SEMANTIX - UNICAMP DATALAB 2018", file=sys.stderr)
     print("***********************************************************",
             file=sys.stderr)
-    print("For a simple training -nsplits flag isn't used.", file = sys.stderr)
-    print("For a cross-training set -nsplits <k>, with k beeing the", file=sys.stderr)
-    print("number of folders you want to split up your data.", file=sys.stderr)
-    print("***********************************************************", 
-            file=sys.stderr)
 
     argp = argparse.ArgumentParser(description='Do training tasks')
     argp.add_argument("-actions", dest='actions', type=str, nargs=1,
@@ -1027,8 +1016,6 @@ if __name__ == '__main__':
         required=True)
     argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs=1,
         help='Usage: -batch_norm <True/False>', required=True)
-    argp.add_argument("-nsplits", dest='nsplits', type=int, nargs=1, 
-    help='Usage: -nsplits <K: many splits you want (>1)>', required=False)
 
     try:
         args = argp.parse_args()
