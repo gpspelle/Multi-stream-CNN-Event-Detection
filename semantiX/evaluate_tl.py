@@ -36,18 +36,22 @@ from matplotlib import pyplot as plt
 
     pre_train_cross
     pre_train
+    cross_train
     train
     evaluate
     plot_training_info
 
     The methods that should be called outside of this class are:
 
+    cross_train: perform a n_split cross_train on files passed by
+    argument
+
     train: perfom a simple trainment on files passsed by argument
 '''
 class Evaluate:
 
     def __init__(self, threshold, epochs, learning_rate, 
-    weight, mini_batch_size, train_id, test_id, batch_norm):
+    weight, mini_batch_size, first_id, sec_id, batch_norm):
 
         '''
             Necessary parameters to train
@@ -59,8 +63,8 @@ class Evaluate:
         self.samples_key = 'samples'
         self.num_key = 'num'
 
-        self.train_id = train_id
-        self.test_id = test_id
+        self.first_id = first_id
+        self.sec_id = sec_id
 
         self.threshold = threshold
         self.num_features = 4096
@@ -206,7 +210,23 @@ class Evaluate:
         del clf_continuous
         gc.collect()
 
-    def train(self, streams):
+    def real_cross_train(self, streams):
+
+        h5features = h5py.File(streams[0] + '_features_' + self.sec_id + '.h5', 'r')
+        h5labels = h5py.File(streams[0] + '_labels_' + self.sec_id + '.h5', 'r')
+        all_features = h5features[self.features_key]
+        all_labels = np.asarray(h5labels[self.labels_key])
+
+        zeroes = np.asarray(np.where(all_labels==0)[0])
+        ones = np.asarray(np.where(all_labels==1)[0])
+        zeroes.sort()
+        ones.sort()
+                                         
+        # Use a 5 fold cross-validation
+        kf_falls = KFold(n_splits=nsplits, shuffle=True)
+        kf_falls.get_n_splits(all_features[zeroes, ...])
+        kf_nofalls = KFold(n_splits=nsplits, shuffle=True)
+        kf_nofalls.get_n_splits(all_features[ones, ...]) 
 
         streams_combinations = []
         for L in range(0, len(streams)+1):
@@ -251,105 +271,118 @@ class Evaluate:
         train_index.sort()
         test_index.sort()
 
-        for stream in streams:
-            train_h5features = h5py.File(stream + '_features_' + self.train_id + '.h5', 'r')
-            train_h5labels = h5py.File(stream + '_labels_' + self.train_id + '.h5', 'r')
-            X_train = train_h5features[self.features_key]
-            y_train = np.asarray(train_h5labels[self.labels_key])
+        # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
+        for (train_index_falls, test_index_falls), (train_index_nofalls, test_index_nofalls) in zip(kf_falls.split(all_features[zeroes, ...]), kf_nofalls.split(all_features[ones, ...])):
 
-            test_h5features = h5py.File(stream + '_features_' + self.test_id + '.h5', 'r')
-            test_h5labels = h5py.File(stream + '_labels_' + self.test_id + '.h5', 'r')
-            X_test = test_h5features[self.features_key]
-            y_test = np.asarray(test_h5labels[self.labels_key])
+            K.clear_session()
+            train_index_falls = np.asarray(train_index_falls)
+            test_index_falls = np.asarray(test_index_falls)
+            train_index_nofalls = np.asarray(train_index_nofalls)
+            test_index_nofalls = np.asarray(test_index_nofalls)
+            train_index = np.concatenate((train_index_falls, train_index_nofalls), axis=0)
+            test_index = np.concatenate((test_index_falls, test_index_nofalls), axis=0)
+            
+            train_index.sort()
+            test_index.sort()
 
-            # Balance the number of positive and negative samples so that there is the same amount of each of them
-            all0 = np.asarray(np.where(y_train==0)[0])
-            all1 = np.asarray(np.where(y_train==1)[0])  
-            if len(all0) < len(all1):
-                all1 = np.random.choice(all1, len(all0), replace=False)
-            else:
-                all0 = np.random.choice(all0, len(all1), replace=False)
+            for stream in streams:
+                h5features = h5py.File(stream + '_features_' + self.sec_id + '.h5', 'r')
+                h5labels = h5py.File(stream + '_labels_' + self.sec_id + '.h5', 'r')
+                all_features = h5features[self.features_key]
+                all_labels = np.asarray(h5labels[self.labels_key])
 
-            allin = np.concatenate((all0.flatten(),all1.flatten()))
-            allin.sort()
-            X_train = X_train[allin,...]
-            y_train = y_train[allin]
+                X_train = np.concatenate((all_features[train_index_falls, ...], all_features[train_index_nofalls, ...]))
+                y_train = np.concatenate((all_labels[train_index_falls, ...], all_labels[train_index_nofalls, ...]))
+                X_test = np.concatenate((all_features[test_index_falls, ...], all_features[test_index_nofalls, ...]))
+                y_test = np.concatenate((all_labels[test_index_falls, ...], all_labels[test_index_nofalls, ...]))  
 
-            classifier = self.set_classifier_vgg16()
-            class_weight = {0: self.weight_0, 1: 1}
-            # Batch training
-            if self.mini_batch_size == 0:
-                history = classifier.fit(X_train, y_train, 
-                        validation_data=(X_test, y_test), 
-                        batch_size=X_train.shape[0], epochs=self.epochs, 
-                        shuffle='batch', class_weight=class_weight)
-            else:
-                history = classifier.fit(X_train, y_train, 
-                        validation_data=(X_test, y_test), 
-                        batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
-                        shuffle=True, class_weight=class_weight, verbose=2)
+                # Balance the number of positive and negative samples so that there is the same amount of each of them
+                all0 = np.asarray(np.where(y_train==0)[0])
+                all1 = np.asarray(np.where(y_train==1)[0])  
+                if len(all0) < len(all1):
+                    all1 = np.random.choice(all1, len(all0), replace=False)
+                else:
+                    all0 = np.random.choice(all0, len(all1), replace=False)
 
-            exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
-            self.plot_training_info(exp, ['accuracy', 'loss'], True, 
-                               history.history)
+                allin = np.concatenate((all0.flatten(),all1.flatten()))
+                allin.sort()
+                X_train = X_train[allin,...]
+                y_train = y_train[allin]
 
-            classifier.save(stream + '_classifier_' + self.train_id + '.h5')
+                classifier = load_model(stream + '_classifier_' + self.first_id + '.h5')
+                class_weight = {0: self.weight_0, 1: 1}
+                # Batch training
+                if self.mini_batch_size == 0:
+                    history = classifier.fit(X_train, y_train, 
+                            validation_data=(X_test, y_test), 
+                            batch_size=X_train.shape[0], epochs=self.epochs, 
+                            shuffle='batch', class_weight=class_weight)
+                else:
+                    history = classifier.fit(X_train, y_train, 
+                            validation_data=(X_test, y_test), 
+                            batch_size=self.mini_batch_size, nb_epoch=self.epochs, 
+                            shuffle=True, class_weight=class_weight, verbose=2)
 
-            train_h5features.close()
-            train_h5labels.close()
-            test_h5features.close()
-            test_h5labels.close()
+                exp = 'lr{}_batchs{}_batchnorm{}_w0_{}'.format(self.learning_rate, self.mini_batch_size, self.batch_norm, self.weight_0)
+                self.plot_training_info(exp, ['accuracy', 'loss'], True, 
+                                   history.history)
 
-        test_predicteds = dict()
-        train_predicteds = dict()
-        
-        for comb in streams_combinations:
-            key = ''.join(comb)
-            test_predicteds[key] = []
-            train_predicteds[key] = []
+                classifier.save(stream + '_classifier_' + self.sec_id + '.h5')
 
-        for stream in streams:
+                train_h5features.close()
+                train_h5labels.close()
+                test_h5features.close()
+                test_h5labels.close()
 
-            train_h5features = h5py.File(stream + '_features_' + self.train_id + '.h5', 'r')
-            train_h5labels = h5py.File(stream + '_labels_' + self.train_id + '.h5', 'r')
-            X_train = train_h5features[self.features_key]
-            y_train = np.asarray(train_h5labels[self.labels_key])
+            test_predicteds = dict()
+            train_predicteds = dict()
+            
+            for comb in streams_combinations:
+                key = ''.join(comb)
+                test_predicteds[key] = []
+                train_predicteds[key] = []
 
-            test_h5features = h5py.File(stream + '_features_' + self.test_id + '.h5', 'r')
-            test_h5labels = h5py.File(stream + '_labels_' + self.test_id + '.h5', 'r')
-            X_test = test_h5features[self.features_key]
-            y_test = np.asarray(test_h5labels[self.labels_key])
+            for stream in streams:
+                h5features = h5py.File(stream + '_features_' + self.first_id + '.h5', 'r')
+                h5labels = h5py.File(stream + '_labels_' + self.first_id + '.h5', 'r')
+                all_features = h5features[self.features_key]
+                all_labels = np.asarray(h5labels[self.labels_key])
 
-            classifier = load_model(stream + '_classifier_' + self.train_id + '.h5')
+                X_train = np.concatenate((all_features[train_index_falls, ...], all_features[train_index_nofalls, ...]))
+                y_train = np.concatenate((all_labels[train_index_falls, ...], all_labels[train_index_nofalls, ...]))
+                X_test = np.concatenate((all_features[test_index_falls, ...], all_features[test_index_nofalls, ...]))
+                y_test = np.concatenate((all_labels[test_index_falls, ...], all_labels[test_index_nofalls, ...]))   
 
-            # Balance the number of positive and negative samples so that there is the same amount of each of them
-            all0 = np.asarray(np.where(y_train==0)[0])
-            all1 = np.asarray(np.where(y_train==1)[0])  
-            if len(all0) < len(all1):
-                all1 = np.random.choice(all1, len(all0), replace=False)
-            else:
-                all0 = np.random.choice(all0, len(all1), replace=False)
+                classifier = load_model(stream + '_classifier_' + self.sec_id + '.h5')
 
-            allin = np.concatenate((all0.flatten(),all1.flatten()))
-            allin.sort()
-            X_train = X_train[allin,...]
-            y_train = y_train[allin]
+                # Balance the number of positive and negative samples so that there is the same amount of each of them
+                all0 = np.asarray(np.where(y_train==0)[0])
+                all1 = np.asarray(np.where(y_train==1)[0])  
+                if len(all0) < len(all1):
+                    all1 = np.random.choice(all1, len(all0), replace=False)
+                else:
+                    all0 = np.random.choice(all0, len(all1), replace=False)
 
-            test_predicted = np.asarray(classifier.predict(np.asarray(X_test)))
-            train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
+                allin = np.concatenate((all0.flatten(),all1.flatten()))
+                allin.sort()
+                X_train = X_train[allin,...]
+                y_train = y_train[allin]
+
+                test_predicted = np.asarray(classifier.predict(np.asarray(X_test)))
+                train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
+
+                for key in list(test_predicteds.keys()):
+                    if stream in key:
+                        test_predicteds[key].append(test_predicted)
+                        train_predicteds[key].append(train_predicted)
+
+                h5features.close()
+                h5labels.close()
 
             for key in list(test_predicteds.keys()):
-                if stream in key:
-                    test_predicteds[key].append(test_predicted)
-                    train_predicteds[key].append(train_predicted)
-
-            h5features.close()
-            h5labels.close()
-
-        for key in list(test_predicteds.keys()):
-            print('########## TESTS WITH  ' + ''.join(key))
-            self.calc_metrics(self.num_streams[key], y_test, y_train, 
-                    test_predicteds[key], train_predicteds[key], key)
+                print('########## TESTS WITH  ' + ''.join(key))
+                self.calc_metrics(self.num_streams[key], y_test, y_train, 
+                        test_predicteds[key], train_predicteds[key], key)
         
         sensitivities_best = dict()
         specificities_best = dict()
@@ -438,6 +471,57 @@ class Evaluate:
         print("FAR: %.4f%% (+/- %.4f%%)" % (np.mean(fars), np.std(fars)))
         print("MDR: %.4f%% (+/- %.4f%%)" % (np.mean(mdrs), np.std(mdrs)))
         print("Accuracy: %.4f%% (+/- %.4f%%)" % (np.mean(accuracies), np.std(accuracies)))
+
+    def cross_train(self, streams, nsplits):
+
+        f_tpr = 0
+        f_fpr = 0
+        f_fnr = 0
+        f_tnr = 0
+        f_precision = 0
+        f_recall = 0
+        f_specificity = 0
+        f_f1 = 0
+        f_accuracy = 0
+
+        # Big TODO's: 
+        # 1. it isn't exactly k-fold because the data istn't partitioned once.
+        # it's divided in a random way at each self.train call
+        # 2. it isn't being chosen a model, but first, a criteria must be find
+
+        for fold in range(nsplits): 
+            tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.train(streams)
+            K.clear_session()
+            f_tpr += tpr
+            f_fpr += fpr
+            f_fnr += fnr
+            f_tnr += tnr
+            f_precision += precision
+            f_recall += recall
+            f_specificity += specificity
+            f_f1 += f1
+            f_accuracy += accuracy
+
+        f_tpr /= nsplits
+        f_fpr /= nsplits
+        f_fnr /= nsplits
+        f_tnr /= nsplits
+        f_precision /= nsplits
+        f_recall /= nsplits
+        f_specificity /= nsplits
+        f_f1 /= nsplits
+        f_accuracy /= nsplits
+        
+        print("***********************************************************")
+        print("             SEMANTIX - UNICAMP DATALAB 2018")
+        print("***********************************************************")
+        print("CROSS VALIDATION MEAN RESULTS: %d splits" % (nsplits))
+        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(f_tpr,f_tnr,f_fpr,f_fnr))   
+        print('Sensitivity/Recall: {}'.format(f_recall))
+        print('Specificity: {}'.format(f_specificity))
+        print('Precision: {}'.format(f_precision))
+        print('F1-measure: {}'.format(f_f1))
+        print('Accuracy: {}'.format(f_accuracy))
 
     def video_random_generator(self, stream, test_size):
         random.seed(datetime.now())
@@ -723,6 +807,8 @@ if __name__ == '__main__':
             file=sys.stderr)
 
     argp = argparse.ArgumentParser(description='Do training tasks')
+    argp.add_argument("-actions", dest='actions', type=str, nargs=1,
+            help='Usage: -actions train or -actions cross-train', required=True)
 
     '''
         todo: make this weight_0 (w0) more general for multiple classes
@@ -745,10 +831,10 @@ if __name__ == '__main__':
             help='Usage: -w0 <weight_for_fall_class>', required=True)
     argp.add_argument("-mini_batch", dest='mini_batch', type=int, nargs=1,
             help='Usage: -mini_batch <mini_batch_size>', required=True)
-    argp.add_argument("-test_id", dest='test_id', type=str, nargs=1,
+    argp.add_argument("-first_id", dest='first_id', type=str, nargs=1,
         help='Usage: -id <identifier_to_test_data>>', 
         required=True)
-    argp.add_argument("-train_id", dest='train_id', type=str, nargs=1,
+    argp.add_argument("-sec_id", dest='sec_id', type=str, nargs=1,
         help='Usage: -id <identifier_to_train_data>>', 
         required=True)
     argp.add_argument("-batch_norm", dest='batch_norm', type=bool, nargs=1,
@@ -761,12 +847,30 @@ if __name__ == '__main__':
         exit(1)
 
     eval = Evaluate(args.thresh[0], args.ep[0], args.lr[0], args.w0[0], 
-           args.mini_batch[0], args.train_id[0], args.test_id[0],
+           args.mini_batch[0], args.first_id[0], args.sec_id[0],
            args.batch_norm[0])
 
     args.streams.sort()
     random.seed(1)
-    eval.train(args.streams)
+    if args.actions[0] == 'train':
+        eval.train(args.streams)
+    elif args.actions[0] == 'cross-train':
+        if args.nsplits == None:
+            print("***********************************************************", 
+                file=sys.stderr)
+            print("You're performing a cross-traing but not giving -nsplits value")
+            print("***********************************************************", 
+                file=sys.stderr)
+            
+        else:
+            #eval.cross_train(args.streams, args.nsplits[0])
+            eval.real_cross_train(args.streams)
+    else:
+        '''
+        Invalid value for actions
+        '''
+        parser.print_help(sys.stderr)
+        exit(1)
 
 '''
     todo: criar excecoes para facilitar o uso
