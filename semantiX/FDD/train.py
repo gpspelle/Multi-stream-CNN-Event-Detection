@@ -728,7 +728,7 @@ class Train:
             predicted = np.asarray(classifier.predict(np.asarray(X_test)))
             train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
 
-            if stream == 'spatial' or stream == 'pose':
+            if stream == 'spatial' or stream == 'pose' or stream == 'ritmo':
                 len_RGB = len(y_test)
                 train_len_RGB = len(y_train)
 
