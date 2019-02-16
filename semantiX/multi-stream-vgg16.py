@@ -51,6 +51,14 @@ if __name__ == '__main__':
     sliding_height = 10
     x_dim = 224
     y_dim = 224
+
+    weights = dict()
+
+    for w in args.weight:
+        if 'RGB' in w:
+            weights['RGB'] = w
+        else:
+            weighs['STACK'] = w
     
     if 'temporal' in args.streams:
         
@@ -99,7 +107,7 @@ if __name__ == '__main__':
 
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        h5 = h5py.File(args.weight[0])
+        h5 = h5py.File(weights['STACK'])
              
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
         
@@ -129,7 +137,7 @@ if __name__ == '__main__':
         
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        h5 = h5py.File(args.weight[1])
+        h5 = h5py.File(weights['RGB'])
              
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
         
@@ -173,7 +181,7 @@ if __name__ == '__main__':
 
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        h5 = h5py.File(args.weight[1])
+        h5 = h5py.File(weights['RGB'])
              
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
         
@@ -217,7 +225,7 @@ if __name__ == '__main__':
 
         layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
 
-        h5 = h5py.File(args.weight[1])
+        h5 = h5py.File(weights['RGB'])
              
         layer_dict = dict([(layer.name, layer) for layer in model.layers])
         
