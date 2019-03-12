@@ -51,7 +51,7 @@ from matplotlib import pyplot as plt
 class Train:
 
     def __init__(self, threshold, epochs, learning_rate, 
-    weight, mini_batch_size, id, batch_norm):
+    classes, weight, mini_batch_size, id, batch_norm):
 
         '''
             Necessary parameters to train
@@ -62,6 +62,7 @@ class Train:
         self.labels_key = 'labels'
         self.samples_key = 'samples'
         self.num_key = 'num'
+        self.classes = classes
 
         self.id = id
 
@@ -216,16 +217,23 @@ class Train:
         all_features = h5features[self.features_key]
         all_labels = np.asarray(h5labels[self.labels_key])
 
-        zeroes = np.asarray(np.where(all_labels==0)[0])
-        ones = np.asarray(np.where(all_labels==1)[0])
-        zeroes.sort()
-        ones.sort()
-                                         
+        labels = []
+        kf = []
+        for i in range(len(self.classes)):
+            kf.append(KFold(n_splits=nsplits, shuffle=True))
+            labels.append(np.asarray(np.where(all_labels==i)[0]))
+            labels[-1].sort()
+        
+        #zeroes = np.asarray(np.where(all_labels==0)[0])
+        #ones = np.asarray(np.where(all_labels==1)[0])
+        #zeroes.sort()
+        #ones.sort()
+              
         # Use a 5 fold cross-validation
-        kf_falls = KFold(n_splits=nsplits, shuffle=True)
-        kf_falls.get_n_splits(all_features[zeroes, ...])
-        kf_nofalls = KFold(n_splits=nsplits, shuffle=True)
-        kf_nofalls.get_n_splits(all_features[ones, ...]) 
+        #kf_falls = KFold(n_splits=nsplits, shuffle=True)
+        #kf_falls.get_n_splits(all_features[zeroes, ...])
+        #kf_nofalls = KFold(n_splits=nsplits, shuffle=True)
+        #kf_nofalls.get_n_splits(all_features[ones, ...]) 
 
         streams_combinations = []
         for L in range(0, len(streams)+1):
@@ -261,44 +269,59 @@ class Train:
             self.accuracies_avg_svm[key] = []
 
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
-        for (train_index_falls, test_index_falls), (train_index_nofalls, test_index_nofalls) in zip(kf_falls.split(all_features[zeroes, ...]), kf_nofalls.split(all_features[ones, ...])):
-
+        for counter in range(nsplits):
             K.clear_session()
-            train_index_falls = np.asarray(train_index_falls)
-            test_index_falls = np.asarray(test_index_falls)
-            train_index_nofalls = np.asarray(train_index_nofalls)
-            test_index_nofalls = np.asarray(test_index_nofalls)
-            train_index = np.concatenate((train_index_falls, train_index_nofalls), axis=0)
-            test_index = np.concatenate((test_index_falls, test_index_nofalls), axis=0)
-            
-            train_index.sort()
-            test_index.sort()
+            train_index_label = []
+            test_index_label = []
+            train_index = []
+            test_index = []
+            for i in range(len(self.classes)):
+                a, b = kf[i].split(all_features[labels[i], ...])  
+                train_index_label.append(a)
+                test_index_label.append(b)
+                train_index_label[-1] = np.asarray(train_index_label[-1])
+                test_index_label[-1] = np.asarray(test_index_label[-1])
 
             for stream in streams:
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
                 h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
                 all_features = h5features[self.features_key]
                 all_labels = np.asarray(h5labels[self.labels_key])
-
-                X_train = np.concatenate((all_features[train_index_falls, ...], all_features[train_index_nofalls, ...]))
-                y_train = np.concatenate((all_labels[train_index_falls, ...], all_labels[train_index_nofalls, ...]))
-                X_test = np.concatenate((all_features[test_index_falls, ...], all_features[test_index_nofalls, ...]))
-                y_test = np.concatenate((all_labels[test_index_falls, ...], all_labels[test_index_nofalls, ...]))   
+                
+                X_train = y_train = X_test = y_test = np.empty(0, dtype=int)
+                for i in range(len(self.classes)):
+                    X_train = np.concatenate((X_train, all_features[train_index_label[i]))
+                    y_train = np.concatenate((y_train, all_labels[train_index_label[i]))
+                    X_test = np.concatenate((X_test, all_features[test_index_label[i]))
+                    y_test = np.concatenate((y_test, all_labels[test_index_label[i]))
+                
                 # Balance the number of positive and negative samples so that there is the same amount of each of them
-                all0 = np.asarray(np.where(y_train==0)[0])
-                all1 = np.asarray(np.where(y_train==1)[0])  
-                if len(all0) < len(all1):
-                    all1 = np.random.choice(all1, len(all0), replace=False)
-                else:
-                    all0 = np.random.choice(all0, len(all1), replace=False)
+                all_ = []
+                len_min = float("inf")
+                ind_min = -1
+                for i in range(len(self.classes)):
+                    all_.append(np.asarray(np.where(y_train==i)[0]))
+                    if len(all_[-1]) < len_min:
+                        ind_min = i
+                        len_min = len(all_[-1])
+                
+                for i in range(len(self.classes)):
+                    all_[i] = np.random.choice(all_[i], len_min, replace=False)
 
-                allin = np.concatenate((all0.flatten(),all1.flatten()))
+                allin = np.empty(0, dtype=int)
+                for i in range(len(self.classes)):
+                    allin = np.concatenate((allin.flatten(), all_[i].flatten()))
+
                 allin.sort()
                 X_train = X_train[allin,...]
                 y_train = y_train[allin]
 
                 classifier = self.set_classifier_vgg16()
-                class_weight = {0: self.weight_0, 1: 1}
+                class_weight = dict()
+
+                for i in range(len(self.classes)):
+                    class_weight[i] = 1
+                
                 # Batch training
                 if self.mini_batch_size == 0:
                     history = classifier.fit(X_train, y_train, 
@@ -318,43 +341,6 @@ class Train:
                 classifier.save(stream + '_classifier_' + self.id + '.h5')
                 h5features.close()
                 h5labels.close()
-                #predicted = np.asarray(classifier.predict(np.asarray(X_test)))
-                #train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
-
-                #predicteds.append(predicted)
-                #train_predicteds.append(train_predicted)
-                
-                #print('EVALUATE WITH ' + stream)
-                #tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(predicted, y_test)
-
-                #if stream=='temporal':
-                #    sensitivities_t.append(recall)
-                #    specificities_t.append(specificity)
-                #    fars_t.append(fpr)
-                #    mdrs_t.append(fnr)
-                #    accuracies_t.append(accuracy)
-                #elif stream == 'pose':
-                #    sensitivities_p.append(recall)
-                #    specificities_p.append(specificity)
-                #    fars_p.append(fpr)
-                #    mdrs_p.append(fnr)
-                #    accuracies_p.append(accuracy)
-                #elif stream == 'spatial':
-                #    sensitivities_s.append(recall)
-                #    specificities_s.append(specificity)
-                #    fars_s.append(fpr)
-                #    mdrs_s.append(fnr)
-                #    accuracies_s.append(accuracy)
-                
-                #print('TRAIN WITH ' + stream)
-                #tpr, fpr, fnr, tnr, precision, recall, specificity, f1, accuracy = self.evaluate_threshold(train_predicted, y_train)
-                #if stream=='temporal':
-                #    taccuracies_t.append(accuracy)
-                #elif stream == 'pose':
-                #    taccuracies_p.append(accuracy)
-                #elif stream == 'spatial':
-                #    taccuracies_s.append(accuracy)
-            
             
             test_predicteds = dict()
             train_predicteds = dict()
@@ -371,19 +357,31 @@ class Train:
                 all_labels = np.asarray(h5labels[self.labels_key])
                 classifier = load_model(stream + '_classifier_' + self.id + '.h5')
 
-                X_train = np.concatenate((all_features[train_index_falls, ...], all_features[train_index_nofalls, ...]))
-                y_train = np.concatenate((all_labels[train_index_falls, ...], all_labels[train_index_nofalls, ...]))
-                X_test = np.concatenate((all_features[test_index_falls, ...], all_features[test_index_nofalls, ...]))
-                y_test = np.concatenate((all_labels[test_index_falls, ...], all_labels[test_index_nofalls, ...]))   
-                # Balance the number of positive and negative samples so that there is the same amount of each of them
-                all0 = np.asarray(np.where(y_train==0)[0])
-                all1 = np.asarray(np.where(y_train==1)[0])  
-                if len(all0) < len(all1):
-                    all1 = np.random.choice(all1, len(all0), replace=False)
-                else:
-                    all0 = np.random.choice(all0, len(all1), replace=False)
+                X_train = y_train = X_test = y_test = np.empty(0, dtype=int)
+                for i in range(len(self.classes)):
+                    X_train = np.concatenate((X_train, all_features[train_index_label[i]))
+                    y_train = np.concatenate((y_train, all_labels[train_index_label[i]))
+                    X_test = np.concatenate((X_test, all_features[test_index_label[i]))
+                    y_test = np.concatenate((y_test, all_labels[test_index_label[i]))
 
-                allin = np.concatenate((all0.flatten(),all1.flatten()))
+
+                # Balance the number of positive and negative samples so that there is the same amount of each of them
+                all_ = []
+                len_min = float("inf")
+                ind_min = -1
+                for i in range(len(self.classes)):
+                    all_.append(np.asarray(np.where(y_train==i)[0]))
+                    if len(all_[-1]) < len_min:
+                        ind_min = i
+                        len_min = len(all_[-1])
+                
+                for i in range(len(self.classes)):
+                    all_[i] = np.random.choice(all_[i], len_min, replace=False)
+
+                allin = np.empty(0, dtype=int)
+                for i in range(len(self.classes)):
+                    allin = np.concatenate((allin.flatten(), all_[i].flatten()))
+
                 allin.sort()
                 X_train = X_train[allin,...]
                 y_train = y_train[allin]
@@ -1025,6 +1023,9 @@ if __name__ == '__main__':
     argp.add_argument("-streams", dest='streams', type=str, nargs='+',
             help='Usage: -streams spatial temporal (to use 2 streams example)',
             required=True)
+    argp.add_argument("-class", dest='classes', type=str, nargs='+', 
+            help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
+            required=True)
     argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
             help='Usage: -thresh <x> (0<=x<=1)', required=True)
     argp.add_argument("-ep", dest='ep', type=int, nargs=1,
@@ -1049,7 +1050,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    train = Train(args.thresh[0], args.ep[0], args.lr[0], 
+    train = Train(args.thresh[0], args.ep[0], args.lr[0], args.classes, 
             args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0])
 
     args.streams.sort()
