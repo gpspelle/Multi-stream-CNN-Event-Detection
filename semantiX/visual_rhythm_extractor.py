@@ -66,7 +66,7 @@ class Visual_Rythm_extractor:
             hor_vr = np.array([]).reshape(0,int(width),3)
             ver_vr = np.array([]).reshape(0,int(height),3)
             #window = 10 
-            count = 0
+            count = 1
             for fi in range (0,(length+1)-window):
                 #print (fi)
                 foward = True
