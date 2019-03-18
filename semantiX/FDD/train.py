@@ -150,8 +150,11 @@ class Train:
 ####
 ####        TREINAMENTO COM MEDIA E SVM
 ####
-
-        class_weight = {0: self.weight_0, 1: 1}
+        
+        class_weight = dict()
+        for i in range(len(self.classes)):
+            class_weight[i] = 1
+                
         clf_avg = svm.SVC(class_weight=class_weight)                                                                 
         clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
         for i in range(len(avg_predicted)):
@@ -223,18 +226,8 @@ class Train:
             kf.append(KFold(n_splits=nsplits, shuffle=True))
             labels.append(np.asarray(np.where(all_labels==i)[0]))
             labels[-1].sort()
+            #kf[-1].get_n_splits(all_features[labels[-1], ...])
         
-        #zeroes = np.asarray(np.where(all_labels==0)[0])
-        #ones = np.asarray(np.where(all_labels==1)[0])
-        #zeroes.sort()
-        #ones.sort()
-              
-        # Use a 5 fold cross-validation
-        #kf_falls = KFold(n_splits=nsplits, shuffle=True)
-        #kf_falls.get_n_splits(all_features[zeroes, ...])
-        #kf_nofalls = KFold(n_splits=nsplits, shuffle=True)
-        #kf_nofalls.get_n_splits(all_features[ones, ...]) 
-
         streams_combinations = []
         for L in range(0, len(streams)+1):
             for subset in itertools.combinations(streams, L):
@@ -273,14 +266,14 @@ class Train:
             K.clear_session()
             train_index_label = []
             test_index_label = []
-            train_index = []
-            test_index = []
             for i in range(len(self.classes)):
                 for (a, b) in kf[i].split(all_features[labels[i], ...]):
+                    print(a, b)
                     train_index_label.append(a)
                     test_index_label.append(b)
                     train_index_label[-1] = np.asarray(train_index_label[-1])
                     test_index_label[-1] = np.asarray(test_index_label[-1])
+                    break
 
             for stream in streams:
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
@@ -302,8 +295,6 @@ class Train:
                 all_ = []
                 len_min = float("inf")
                 ind_min = -1
-                print(X_train, y_train)
-                print(X_train.shape, y_train.shape)
                 for i in range(len(self.classes)):
                     all_.append(np.where(y_train==i)[0])
                     if len(all_[-1]) < len_min:
@@ -321,15 +312,12 @@ class Train:
                 X_train = X_train[allin,...]
                 y_train = y_train[allin]
 
-                print(ind_min, len_min)
                 classifier = self.set_classifier_vgg16()
                 class_weight = dict()
 
                 for i in range(len(self.classes)):
                     class_weight[i] = 1
                 
-                print(X_train, y_train)
-                print(X_train.shape, y_train.shape)
                 # Batch training
                 if self.mini_batch_size == 0:
                     history = classifier.fit(X_train, y_train, 
@@ -365,13 +353,15 @@ class Train:
                 all_labels = np.asarray(h5labels[self.labels_key])
                 classifier = load_model(stream + '_classifier_' + self.id + '.h5')
 
-                X_train = y_train = X_test = y_test = np.empty(0, dtype=int)
+                X_train = np.empty(shape=(0,4096), dtype=int)
+                y_train = np.empty(shape=(0,1), dtype=int)
+                X_test = np.empty(shape=(0,4096), dtype=int)
+                y_test = np.empty(shape=(0,1), dtype=int)
                 for i in range(len(self.classes)):
                     X_train = np.concatenate((X_train, all_features[train_index_label[i], ...]))
                     y_train = np.concatenate((y_train, all_labels[train_index_label[i], ...]))
                     X_test = np.concatenate((X_test, all_features[test_index_label[i], ...]))
                     y_test = np.concatenate((y_test, all_labels[test_index_label[i], ...]))
-
 
                 # Balance the number of positive and negative samples so that there is the same amount of each of them
                 all_ = []

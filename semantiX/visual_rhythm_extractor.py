@@ -58,7 +58,6 @@ class Visual_Rythm_extractor:
             #sucess, frame1 = cap.read( )
             #print (sucess)
             length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            print( length )
             width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
             height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) # float
             #print (width)
@@ -79,14 +78,13 @@ class Visual_Rythm_extractor:
                 self.vr (video, width, height, hor_vr, ver_vr, fi, window, path, foward, count)
                 count = count + 1
                 
-
     def vr (self, video, width, height, hor_vr, ver_vr, fi, window, path, foward, count):
         cap = cv2.VideoCapture(video)
         
         if foward == True:
             ff = fi + window
             for fr in range(fi,ff):
-                print (fr)
+                #print (fr)
                 #print (fr+10)
                 cap.set(1,fr);
                 ret, img = cap.read()
@@ -112,7 +110,7 @@ class Visual_Rythm_extractor:
             ff = (fi + 1) - window
             #print (ff)
             for fr in range(fi,ff-1,-1):
-                print (fr)
+                #print (fr)
                 #print (fr-10)
                 cap.set(1,fr);
                 ret, img = cap.read()
@@ -137,36 +135,13 @@ class Visual_Rythm_extractor:
 
         hor_vr = hor_vr.astype(np.uint8)
         ver_vr = ver_vr.astype(np.uint8)
-        print (hor_vr.shape)
-        print (ver_vr.shape)
-        print (':::::path:::::::')
         ph = path + '/ritmo_'+str(count).zfill(5)+'_h.jpg'
         pv = path + '/ritmo_'+str(count).zfill(5)+'_v.jpg'
-        print (ph)
-        #print (pv)
-        cv2.imwrite(ph, hor_vr)
-        #cv2.imwrite(pv, ver_vr)
-        try:
-            self.rescale_VR(ph, pv, path)
-        except cv2.error as e:
-            print ("Check dimensions")
+        img1 = cv2.resize(np.asarray(hor_vr), (224, 224))
+        cv2.imwrite(ph, img1)
+    
         cap.release()
         #cv2.destroyAllWindows()
-
-    def rescale_VR(self, ph, pv, path): 
-
-        im1 = cv2.imread(ph)
-        #im2 = cv2.imread(pv)
-
-        img1 = cv2.resize(im1,(224,224))
-        #img2 = cv2.resize(im2,(224,224))
-        #for i in range (1,11,2):
-        #    ph1 = path + '/ritmo_0000'+ str(i) + '.jpg'
-        #    pv1 = path + '/ritmo_0000'+ str(i + 1) + '.jpg'
-        #    cv2.imwrite(ph1, img1)
-        #    cv2.imwrite(pv1, img2)
-        cv2.imwrite(ph, img1)
-        #cv2.imwrite(pv, img2)
 
     def get_dirs(self, data_folder):
 
