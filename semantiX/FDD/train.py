@@ -158,7 +158,7 @@ class Train:
         clf_avg = svm.SVC(class_weight=class_weight)                                                                 
         clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
         for i in range(len(avg_predicted)):
-            avg_predicted[i] = clf_avg.predict(avg_predicted[i])
+            avg_predicted[i] = clf_avg.predict(avg_predicted[i].reshape(-1, 1))
 
         joblib.dump(clf_avg, 'svm_avg.pkl') 
 
@@ -266,15 +266,25 @@ class Train:
             K.clear_session()
             train_index_label = []
             test_index_label = []
+            print(counter)
             for i in range(len(self.classes)):
                 for (a, b) in kf[i].split(all_features[labels[i], ...]):
-                    print(a, b)
+                    if counter == 0:
+                        save_a = a
+                        save_b = b
+                    else:
+                        wa = a
+                        wb = b
+
+                    if counter > 0:
+                        print(save_a, sabe_b)
+                        print(wa, wb)
                     train_index_label.append(a)
                     test_index_label.append(b)
                     train_index_label[-1] = np.asarray(train_index_label[-1])
                     test_index_label[-1] = np.asarray(test_index_label[-1])
                     break
-
+            
             for stream in streams:
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
                 h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
