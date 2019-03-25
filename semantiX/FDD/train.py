@@ -155,7 +155,7 @@ class Train:
         for i in range(len(self.classes)):
             class_weight[i] = 1
                 
-        clf_avg = svm.SVC(class_weight=class_weight)                                                                 
+        clf_avg = svm.SVC(class_weight=class_weight, gamma='auto') 
         clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
         for i in range(len(avg_predicted)):
             avg_predicted[i] = clf_avg.predict(avg_predicted[i].reshape(-1, 1))
@@ -183,7 +183,7 @@ class Train:
 ####        TREINAMENTO CONTINUO E SVM
 ####
 
-        clf_continuous = svm.SVC(class_weight=class_weight)
+        clf_continuous = svm.SVC(class_weight=class_weight, gamma='auto')
 
         clf_continuous.fit(clf_train_predicteds, y_train)
        
@@ -215,18 +215,17 @@ class Train:
 
     def real_cross_train(self, streams, nsplits):
 
-        h5features = h5py.File(streams[0] + '_features_' + self.id + '.h5', 'r')
-        h5labels = h5py.File(streams[0] + '_labels_' + self.id + '.h5', 'r')
-        all_features = h5features[self.features_key]
-        all_labels = np.asarray(h5labels[self.labels_key])
+        h5features_start = h5py.File(streams[0] + '_features_' + self.id + '.h5', 'r')
+        h5labels_start = h5py.File(streams[0] + '_labels_' + self.id + '.h5', 'r')
+        all_features_start = h5features_start[self.features_key]
+        all_labels_start = np.asarray(h5labels_start[self.labels_key])
 
         labels = []
         kf = []
         for i in range(len(self.classes)):
             kf.append(KFold(n_splits=nsplits, shuffle=True))
-            labels.append(np.asarray(np.where(all_labels==i)[0]))
+            labels.append(np.asarray(np.where(all_labels_start==i)[0]))
             labels[-1].sort()
-            #kf[-1].get_n_splits(all_features[labels[-1], ...])
         
         streams_combinations = []
         for L in range(0, len(streams)+1):
@@ -266,24 +265,15 @@ class Train:
             K.clear_session()
             train_index_label = []
             test_index_label = []
-            print(counter)
             for i in range(len(self.classes)):
-                for (a, b) in kf[i].split(all_features[labels[i], ...]):
-                    if counter == 0:
-                        save_a = a
-                        save_b = b
-                    else:
-                        wa = a
-                        wb = b
-
-                    if counter > 0:
-                        print(save_a, sabe_b)
-                        print(wa, wb)
+                print(counter, i)
+                for (a, b) in kf[i].split(all_features_start[labels[i], ...]):
                     train_index_label.append(a)
                     test_index_label.append(b)
                     train_index_label[-1] = np.asarray(train_index_label[-1])
                     test_index_label[-1] = np.asarray(test_index_label[-1])
                     break
+                print(a, b)
             
             for stream in streams:
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
@@ -409,7 +399,9 @@ class Train:
                 print('########## TESTS WITH  ' + ''.join(key))
                 self.calc_metrics(self.num_streams[key], y_test, y_train, 
                         test_predicteds[key], train_predicteds[key], key)
-        
+       
+        h5features_start.close()
+        h5labels_start.close()
         sensitivities_best = dict()
         specificities_best = dict()
         accuracies_best = dict()
@@ -954,8 +946,7 @@ class Train:
         adam = Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, 
                     epsilon=1e-08, decay=0.0005)
 
-        classifier = Model(input=extracted_features, output=x, 
-                           name='classifier')
+        classifier = Model(name="classifier", inputs=extracted_features, outputs=x)
         classifier.compile(optimizer=adam, loss='binary_crossentropy',
                            metrics=['accuracy'])
 
