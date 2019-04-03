@@ -175,6 +175,50 @@ if __name__ == '__main__':
 
         print("Saving your pose-estimation CNN as VGG16_pose")
         model.save('VGG16_pose')
+
+    if 'depth' in args.streams:
+        model = VGG16(include_top=False)
+
+        layers_name = ['block1_conv1', 'block1_conv2', 'block2_conv1', 'block2_conv2', 'block3_conv1', 'block3_conv2', 'block3_conv3', 'block4_conv1', 'block4_conv2', 'block4_conv3', 'block5_conv1', 'block5_conv2', 'block5_conv3']
+
+        h5 = h5py.File(weights['RGB'])
+             
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
+        
+        # Copy the weights stored in the weights file to the feature extractor part of the VGG16
+        for layer in layers_name:
+            w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+            w2 = np.transpose(np.asarray(w2), (3,2,1,0))
+            w2 = w2[::-1, ::-1, :, :]
+            b2 = np.asarray(b2)
+            K.set_value(layer_dict[layer].kernel, w2)
+            K.set_value(layer_dict[layer].bias, b2)
+        
+        input = Input(shape=(x_dim, y_dim, 3),
+                        name='depth_input')
+
+        output_vgg16 = model(input)
+
+        x = Flatten(name='flatten')(output_vgg16)
+        x = Dense(num_features, activation='relu', name='fc6')(x)
+
+        model = Model(inputs=input, outputs=x, name='VGG16_depth')
+        layer_dict = dict([(layer.name, layer) for layer in model.layers])
+
+        # Copy the weights of the first fully-connected layer (fc6)
+        layer = 'fc6'
+        w2, b2 = h5['data'][layer]['0'], h5['data'][layer]['1']
+        w2 = np.transpose(np.asarray(w2), (1,0))
+        b2 = np.asarray(b2)
+        K.set_value(layer_dict[layer].kernel, w2)
+        K.set_value(layer_dict[layer].bias, b2)
+
+        # This simple keras function can't be used because of the transformations
+        # we need to apply and the current format of the data stored in h5
+        #model.load_weights(args.weight[0], by_name=True)
+
+        print("Saving your spatial CNN as VGG16_depth")
+        model.save('VGG16_depth')
     
     if 'spatial' in args.streams:
         model = VGG16(include_top=False)
@@ -195,7 +239,7 @@ if __name__ == '__main__':
             K.set_value(layer_dict[layer].bias, b2)
         
         input = Input(shape=(x_dim, y_dim, 3),
-                        name='pose_input')
+                            name='spatial_input')
 
         output_vgg16 = model(input)
 
@@ -239,7 +283,7 @@ if __name__ == '__main__':
             K.set_value(layer_dict[layer].bias, b2)
         
         input = Input(shape=(x_dim, y_dim, 3),
-                        name='pose_input')
+                        name='ritmo_input')
 
         output_vgg16 = model(input)
 

@@ -126,6 +126,8 @@ class Fextractor:
             file_name = '/frame_*.jpg'
         elif stream == 'ritmo':
             file_name = '/ritmo_*.jpg'
+        elif stream == 'depth':
+            file_name = '/depth_*.jpg'
         else:
             print("INVALID STREAM ERROR")
             print("VALIDS STREAMS: {temporal, spatial, pose}") 

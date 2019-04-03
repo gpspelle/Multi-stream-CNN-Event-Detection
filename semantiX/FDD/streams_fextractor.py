@@ -126,6 +126,8 @@ class Fextractor:
             file_name = '/frame_*.jpg'
         elif stream == 'ritmo':
             file_name = '/ritmo_*.jpg'
+        elif stream == 'depth':
+            file_name = '/depth_*.jpg'
         else:
             print("INVALID STREAM ERROR")
             print("VALIDS STREAMS: {temporal, spatial, pose}") 
@@ -134,11 +136,11 @@ class Fextractor:
         for c in range(len(self.classes)):
 
             num_class.append(0)
-            #if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
-            #    print("Sorry. Classes possibles are Falls and NotFalls, its \
-            #        hardcoded and will be expanded really soon. Its being \
-            #        used inside Extracting Features for, setting label value")
-            #    exit(1)
+            if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
+                print("Sorry. Classes possibles are Falls and NotFalls, its \
+                    hardcoded and will be expanded really soon. Its being \
+                    used inside Extracting Features for, setting label value")
+                exit(1)
 
             for dir in self.classes_dirs[c]: 
                 
@@ -192,11 +194,11 @@ class Fextractor:
                 # Removing unmatched frames from other streams
                 self.data_images = self.data_images[:-sliding_height]
 
-            label = self.classes.index(classe)
-            #if classe == 'Falls':
-            #    label = 0
-            #else:
-            #    label = 1
+            label = -1
+            if classe == 'Falls':
+                label = 0
+            else:
+                label = 1
 
             # last -sliding_height + 1 OF frames dont get a stack
             if stream == 'temporal':
