@@ -63,6 +63,7 @@ class Train:
         self.samples_key = 'samples'
         self.num_key = 'num'
         self.classes = classes
+        self.classes.sort()
 
         self.id = id
 
