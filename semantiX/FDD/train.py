@@ -222,11 +222,15 @@ class Train:
         all_labels_start = np.asarray(h5labels_start[self.labels_key])
 
         labels = []
+        labels_start_index = [0]
         kf = []
         for i in range(len(self.classes)):
+            atual = labels_start_index[-1]
             kf.append(KFold(n_splits=nsplits, shuffle=True))
-            labels.append(np.asarray(np.where(all_labels_start==i)[0]))
-            labels[-1].sort()
+            labels.append(np.where(all_labels_start==i)[0])
+            labels_start_index.append(len(labels[-1]) + atual)
+            print("Labels da classe " + self.classes[i]+ " ", end='')
+            print(labels[-1])
         
         streams_combinations = []
         for L in range(0, len(streams)+1):
@@ -264,19 +268,32 @@ class Train:
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
         for counter in range(nsplits):
             K.clear_session()
-            train_index_label = []
-            test_index_label = []
+            train_index_label = np.empty(shape=(0), dtype=int)
+            test_index_label = np.empty(shape=(0), dtype=int)
+            print(self.classes)
             for i in range(len(self.classes)):
-                print(counter, i)
+                print("Analisando a classe: " + self.classes[i])
+                print("Quantidade de labels: " + str(len(labels[i])))
                 for (a, b) in kf[i].split(all_features_start[labels[i], ...]):
-                    train_index_label.append(a)
-                    test_index_label.append(b)
-                    train_index_label[-1] = np.asarray(train_index_label[-1])
-                    test_index_label[-1] = np.asarray(test_index_label[-1])
+                    a = np.asarray(a)
+                    b = np.asarray(b)
+
+                    a = np.add(a, labels_start_index[i])
+                    b = np.add(b, labels_start_index[i])
+
+                    train_index_label = np.concatenate((train_index_label, a), axis=0)
+                    test_index_label = np.concatenate((test_index_label, b), axis=0)
+                    
                     break
-                print(a, b)
-            
+                print("Valores de train ", end='')
+                print(a, len(a))
+                print("Valores de test ", end='')
+                print(b, len(b))
+           
+            train_index_label.sort()
+            test_index_label.sort()
             for stream in streams:
+                print("Analisando a stream " + stream)
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
                 h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
                 all_features = h5features[self.features_key]
@@ -287,17 +304,28 @@ class Train:
                 X_test = np.empty(shape=(0,4096), dtype=int)
                 y_test = np.empty(shape=(0,1), dtype=int)
                 for i in range(len(self.classes)):
-                    X_train = np.concatenate((X_train, all_features[train_index_label[i], ...]))
-                    y_train = np.concatenate((y_train, all_labels[train_index_label[i], ...]))
-                    X_test = np.concatenate((X_test, all_features[test_index_label[i], ...]))
-                    y_test = np.concatenate((y_test, all_labels[test_index_label[i], ...]))
+                    print("Indices de treino para a stream " + stream + " e classe " + self.classes[i], end='')
+                    print(train_index_label, train_index_label.shape)
+                    X_train = np.concatenate((X_train, all_features[train_index_label, ...]))
+                    y_train = np.concatenate((y_train, all_labels[train_index_label, ...]))
+                    X_test = np.concatenate((X_test, all_features[test_index_label, ...]))
+                    y_test = np.concatenate((y_test, all_labels[test_index_label, ...]))
                 
                 # Balance the number of positive and negative samples so that there is the same amount of each of them
                 all_ = []
                 len_min = float("inf")
                 ind_min = -1
+
+                print("Valor de y_train: ", end='')
+                print(y_train)
+                print("Onde y_train eh 0 ", end='')
+                print(np.where(y_train==0)[0], len(np.where(y_train==0)[0]))
+                print("Onde y_train eh 1 ", end='')
+                print(np.where(y_train==1)[0], len(np.where(y_train==1)[0]))
+
                 for i in range(len(self.classes)):
                     all_.append(np.where(y_train==i)[0])
+                    print("Tamanho da classe " + self.classes[i] + " " + str(len(all_[-1])))
                     if len(all_[-1]) < len_min:
                         ind_min = i
                         len_min = len(all_[-1])
@@ -359,10 +387,10 @@ class Train:
                 X_test = np.empty(shape=(0,4096), dtype=int)
                 y_test = np.empty(shape=(0,1), dtype=int)
                 for i in range(len(self.classes)):
-                    X_train = np.concatenate((X_train, all_features[train_index_label[i], ...]))
-                    y_train = np.concatenate((y_train, all_labels[train_index_label[i], ...]))
-                    X_test = np.concatenate((X_test, all_features[test_index_label[i], ...]))
-                    y_test = np.concatenate((y_test, all_labels[test_index_label[i], ...]))
+                    X_train = np.concatenate((X_train, all_features[train_index_label, ...]))
+                    y_train = np.concatenate((y_train, all_labels[train_index_label, ...]))
+                    X_test = np.concatenate((X_test, all_features[test_index_label, ...]))
+                    y_test = np.concatenate((y_test, all_labels[test_index_label, ...]))
 
                 # Balance the number of positive and negative samples so that there is the same amount of each of them
                 all_ = []
