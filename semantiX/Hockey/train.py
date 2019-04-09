@@ -161,8 +161,7 @@ class Train:
         clf_avg = svm.SVC(class_weight=class_weight, gamma='auto') 
         clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
         for i in range(len(avg_predicted)):
-            pred= clf_avg.predict(avg_predicted[i].reshape(-1, 1))
-            avg_predicted[i] = np.argmax(pred, axis=1)
+            avg_predicted[i] = clf_avg.predict(avg_predicted[i].reshape(-1, 1))
 
         joblib.dump(clf_avg, 'svm_avg.pkl') 
 
@@ -195,12 +194,10 @@ class Train:
         avg_train_continuous = np.array(train_avg_predicted, copy=True)
 
         for i in range(len(avg_continuous)):
-            pred = clf_continuous.predict(np.asarray([item[i] for item in test_predicteds]).reshape(1, -1))
-            avg_continuous[i] = np.argmax(pred, axis=1)
+            avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in test_predicteds]).reshape(1, -1))
         
         for i in range(len(avg_train_continuous)):
-            pred = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
-            avg_train_continuous[i] = np.argmax(pred, axis=1)
+            avg_train_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in train_predicteds]).reshape(1, -1))
 
         joblib.dump(clf_continuous, 'svm_cont.pkl') 
         print('EVALUATE WITH continuous values and SVM')
@@ -273,8 +270,10 @@ class Train:
         # CROSS-VALIDATION: Stratified partition of the dataset into train/test setes
         for counter in range(nsplits):
             K.clear_session()
-            train_index_label = np.empty(shape=(0), dtype=int)
-            test_index_label = np.empty(shape=(0), dtype=int)
+            #train_index_label = np.empty(shape=(0), dtype=int)
+            #test_index_label = np.empty(shape=(0), dtype=int)
+            train_index_label = []
+            test_index_label = []
             print(self.classes)
             for i in range(len(self.classes)):
                 print("Analisando a classe: " + self.classes[i])
@@ -283,11 +282,8 @@ class Train:
                     a = np.asarray(a)
                     b = np.asarray(b)
 
-                    a = np.add(a, labels_start_index[i])
-                    b = np.add(b, labels_start_index[i])
-
-                    train_index_label = np.concatenate((train_index_label, a), axis=0)
-                    test_index_label = np.concatenate((test_index_label, b), axis=0)
+                    train_index_label.append(a)
+                    test_index_label.append(b)
                     
                     break
                 print("Valores de train ", end='')
@@ -295,8 +291,8 @@ class Train:
                 print("Valores de test ", end='')
                 print(b, len(b))
            
-            train_index_label.sort()
-            test_index_label.sort()
+            #train_index_label.sort()
+            #test_index_label.sort()
             for stream in streams:
                 print("Analisando a stream " + stream)
                 h5features = h5py.File(stream + '_features_' + self.id + '.h5', 'r')
@@ -309,18 +305,18 @@ class Train:
                 X_test = np.empty(shape=(0,4096), dtype=int)
                 y_test = np.empty(shape=(0,1), dtype=int)
                 for i in range(len(self.classes)):
-                    print("Indices de treino para a stream " + stream + " e classe " + self.classes[i], end='')
-                    print(train_index_label, train_index_label.shape)
-                    X_train = np.concatenate((X_train, all_features[train_index_label, ...]))
-                    y_train = np.concatenate((y_train, all_labels[train_index_label, ...]))
-                    X_test = np.concatenate((X_test, all_features[test_index_label, ...]))
-                    y_test = np.concatenate((y_test, all_labels[test_index_label, ...]))
+                    X_train = np.concatenate((X_train, all_features[labels[i], ...][train_index_label[i], ...]))
+                    y_train = np.concatenate((y_train, all_labels[labels[i], ...][train_index_label[i], ...]))
+                    X_test = np.concatenate((X_test, all_features[labels[i], ...][test_index_label[i], ...]))
+                    y_test = np.concatenate((y_test, all_labels[labels[i], ...][test_index_label[i], ...]))
                 
                 # Balance the number of positive and negative samples so that there is the same amount of each of them
                 all_ = []
                 len_min = float("inf")
                 ind_min = -1
 
+                print("Valor de x_train: ", end='')
+                print(X_train)
                 print("Valor de y_train: ", end='')
                 print(y_train)
                 print("Onde y_train eh 0 ", end='')
@@ -392,10 +388,10 @@ class Train:
                 X_test = np.empty(shape=(0,4096), dtype=int)
                 y_test = np.empty(shape=(0,1), dtype=int)
                 for i in range(len(self.classes)):
-                    X_train = np.concatenate((X_train, all_features[train_index_label, ...]))
-                    y_train = np.concatenate((y_train, all_labels[train_index_label, ...]))
-                    X_test = np.concatenate((X_test, all_features[test_index_label, ...]))
-                    y_test = np.concatenate((y_test, all_labels[test_index_label, ...]))
+                    X_train = np.concatenate((X_train, all_features[labels[i], ...][train_index_label[i], ...]))
+                    y_train = np.concatenate((y_train, all_labels[labels[i], ...][train_index_label[i], ...]))
+                    X_test = np.concatenate((X_test, all_features[labels[i], ...][test_index_label[i], ...]))
+                    y_test = np.concatenate((y_test, all_labels[labels[i], ...][test_index_label[i], ...]))
 
                 # Balance the number of positive and negative samples so that there is the same amount of each of them
                 all_ = []
@@ -418,20 +414,20 @@ class Train:
                 X_train = X_train[allin,...]
                 y_train = y_train[allin]
 
-                for test in X_test:
-                    pred = classifier.predict(np.asarray(test))
-                    test_predicted.append(np.argmax(pred))
+                train_predicted = []
+                test_predicted = []
 
                 for train in X_train:
-                    pred = classifier.predcit(np.asarray(train))
+                    pred = classifier.predict(np.asarray(train.reshape(1, -1)))
                     train_predicted.append(np.argmax(pred))
+
+                for test in X_test:
+                    pred = classifier.predict(np.asarray(test.reshape(1, -1)))
+                    test_predicted.append(np.argmax(pred))
 
                 test_predicted = np.asarray(test_predicted)
                 train_predicted = np.asarray(train_predicted)
                 
-                #test_predicted = np.asarray(classifier.predict(np.asarray(X_test)))
-                #train_predicted = np.asarray(classifier.predict(np.asarray(X_train)))
-
                 for key in list(test_predicteds.keys()):
                     if stream in key:
                         test_predicteds[key].append(test_predicted)
