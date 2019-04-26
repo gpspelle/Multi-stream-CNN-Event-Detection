@@ -89,33 +89,28 @@ class Result:
         fp = cm[1][0]
         tn = cm[1][1]
 
-        if tp+fn == 0 or fp + tn == 0 or tn + fp == 0 or tp + fp == 0 or tp + fn == 0 or tn + fp == 0:
-            print("### Zero division error calculating metrics ###")
-            accuracy = accuracy_score(truth, predicted)
-
-            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-            print('Accuracy: {}'.format(accuracy))
-        else:
-            tpr = tp/float(tp+fn)
-            fpr = fp/float(fp+tn)
-            fnr = fn/float(fn+tp)
-            tnr = tn/float(tn+fp)
+        try:
             precision = tp/float(tp+fp)
-            recall = tp/float(tp+fn)
-            specificity = tn/float(tn+fp)
+        except ZeroDivisionError:
+            precision = 1.0
+        recall = tp/float(tp+fn)
+        specificity = tn/float(tn+fp)
+        try:
             f1 = 2*float(precision*recall)/float(precision+recall)
+        except ZeroDivisionError:
+            f1 = 1.0
 
-            accuracy = accuracy_score(truth, predicted)
-            print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-            print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-            print('Sensitivity/Recall: {}'.format(recall))
-            print('Specificity: {}'.format(specificity))
-            print('Precision: {}'.format(precision))
-            print('F1-measure: {}'.format(f1))
-            print('Accuracy: {}'.format(accuracy))
+        accuracy = accuracy_score(truth, predicted)
 
+        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
+        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
+        print('Sensitivity/Recall: {}'.format(recall))
+        print('Specificity: {}'.format(specificity))
+        print('Precision: {}'.format(precision))
+        print('F1-measure: {}'.format(f1))
+        print('Accuracy: {}'.format(accuracy))
 
-    def result(self, streams):
+    def result(self, streams, f_classif):
 
         predicteds = []
         temporal = 'temporal' in streams
@@ -126,12 +121,8 @@ class Result:
 
             predicted = np.asarray(predicted.flat)
 
-            if stream == 'spatial' or stream == 'pose':
+            if stream != 'temporal':
                 len_RGB = len(Y)
-
-                print('EVALUATE WITH %s' % (stream))
-                
-                self.evaluate_threshold(Y, predicted)
 
                 if not temporal:
                     Truth = Y 
@@ -150,50 +141,58 @@ class Result:
                     clean_predicted = np.delete(predicted, index)
                     predicteds.append(clean_predicted)
 
-            elif stream == 'temporal':
-
+            else:
                 # Checking if temporal is the only stream
                 if len(streams) == 1:
                     Truth = Y
 
                 len_STACK = len(Y)
                 predicteds.append(np.copy(predicted)) 
-                print('EVALUATE WITH %s' % (stream))
-                
-                self.evaluate_threshold(Y, predicted)
 
         if temporal:
             cont_predicteds = np.zeros(len_STACK, dtype=np.float)
-            for j in range(len_STACK):
-                for i in range(len(streams)):
-                    cont_predicteds[j] += 1* predicteds[i][j] 
-
-                cont_predicteds[j] /= (len(streams))
-
         else:
             cont_predicteds = np.zeros(len_RGB, dtype=np.float)
-            for j in range(len_RGB):
+                   
+        if f_classif == 'thresh':
+            for j in range(len(cont_predicteds)):
                 for i in range(len(streams)):
-                    cont_predicteds[j] += 1* predicteds[i][j] 
+                    cont_predicteds[j] += predicteds[i][j] 
 
                 cont_predicteds[j] /= (len(streams))
 
-        print('EVALUATE WITH average threshold')
-        self.evaluate_threshold(Truth, np.array(cont_predicteds, copy=True))
+            if temporal:
+                self.check_videos(Truth, cont_predicteds, 'temporal')
+            else:
+                self.check_videos(Truth, cont_predicteds, streams[0])
+            
+        elif f_classif == 'svm_avg':
+            for j in range(len(cont_predicteds)):
+                for i in range(len(streams)):
+                    cont_predicteds[j] += predicteds[i][j] 
 
-        clf = joblib.load('svm_cont.pkl')
-        print('EVALUATE WITH continuous values and svm')
-        for i in range(len(cont_predicteds)):
-            cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+                cont_predicteds[j] /= (len(streams))
 
-        self.evaluate(Truth, cont_predicteds)
+            clf = joblib.load('svm_avg.pkl')
+            print('EVALUATE WITH average and svm')
+            for i in range(len(cont_predicteds)):
+                cont_predicteds[i] = clf.predict(cont_predicteds[i])
 
-        if temporal:
-            self.check_videos(Truth, cont_predicteds, 'temporal')
-        elif 'pose' in streams:
-            self.check_videos(Truth, cont_predicteds, 'pose')
-        else:
-            self.check_videos(Truth, cont_predicteds, 'spatial')
+            if temporal:
+                self.check_videos(Truth, cont_predicteds, 'temporal')
+            else:
+                self.check_videos(Truth, cont_predicteds, streams[0])
+
+        elif f_classif == 'svm_cont':
+            clf = joblib.load('svm_cont.pkl')
+            print('EVALUATE WITH continuous values and svm')
+            for i in range(len(cont_predicteds)):
+                cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+
+            if temporal:
+                self.check_videos(Truth, cont_predicteds, 'temporal')
+            else:
+                self.check_videos(Truth, cont_predicteds, streams[0])
 
     def check_videos(self, _y2, predicted, stream):
         h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
@@ -266,6 +265,9 @@ if __name__ == '__main__':
     argp.add_argument("-cid", dest='cid', type=str, nargs=1,
         help='Usage: -id <identifier_to_classifier>', 
         required=True)
+    argp.add_argument("-f_classif", dest='f_classif', type=str, nargs=1,
+        help='Usage: -f_classif <thresh> or <svm_avg> or <svm_cont>', 
+        required=True)
 
     try:
         args = argp.parse_args()
@@ -275,8 +277,9 @@ if __name__ == '__main__':
 
     result = Result(args.classes, args.thresh[0], args.fid[0], args.cid[0])
 
+    # Need to sort
     args.streams.sort()
-    result.result(args.streams)
+    result.result(args.streams, args.f_classif[0])
 
 '''
     todo: criar excecoes para facilitar o uso
