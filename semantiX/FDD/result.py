@@ -113,46 +113,16 @@ class Result:
     def result(self, streams, f_classif):
 
         predicteds = []
-        temporal = 'temporal' in streams
-        len_RGB = 0
         len_STACK = 0
+        Truth = 0
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
-
+            len_STACK = len(Y)
+            Truth = Y
             predicted = np.asarray(predicted.flat)
+            predicteds.append(np.copy(predicted)) 
 
-            if stream != 'temporal':
-                len_RGB = len(Y)
-
-                if not temporal:
-                    Truth = Y 
-                    predicteds.append(predicted)
-                else:    
-                    Truth = Y
-                    h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
-                    all_samples = np.asarray(h5samples[self.samples_key])
-                    pos = 0
-                    index = []
-                    for x in all_samples:
-                        index += list(range(pos + x[0] - self.sliding_height, pos + x[0]))
-                        pos+=x[0]
-
-                    Truth = np.delete(Truth, index)
-                    clean_predicted = np.delete(predicted, index)
-                    predicteds.append(clean_predicted)
-
-            else:
-                # Checking if temporal is the only stream
-                if len(streams) == 1:
-                    Truth = Y
-
-                len_STACK = len(Y)
-                predicteds.append(np.copy(predicted)) 
-
-        if temporal:
-            cont_predicteds = np.zeros(len_STACK, dtype=np.float)
-        else:
-            cont_predicteds = np.zeros(len_RGB, dtype=np.float)
+        cont_predicteds = np.zeros(len_STACK, dtype=np.float)
                    
         if f_classif == 'thresh':
             for j in range(len(cont_predicteds)):
@@ -161,10 +131,7 @@ class Result:
 
                 cont_predicteds[j] /= (len(streams))
 
-            if temporal:
-                self.check_videos(Truth, cont_predicteds, 'temporal')
-            else:
-                self.check_videos(Truth, cont_predicteds, streams[0])
+            self.check_videos(Truth, cont_predicteds, streams[0])
             
         elif f_classif == 'svm_avg':
             for j in range(len(cont_predicteds)):
@@ -178,10 +145,7 @@ class Result:
             for i in range(len(cont_predicteds)):
                 cont_predicteds[i] = clf.predict(cont_predicteds[i])
 
-            if temporal:
-                self.check_videos(Truth, cont_predicteds, 'temporal')
-            else:
-                self.check_videos(Truth, cont_predicteds, streams[0])
+            self.check_videos(Truth, cont_predicteds, streams[0])
 
         elif f_classif == 'svm_cont':
             clf = joblib.load('svm_cont.pkl')
@@ -189,10 +153,7 @@ class Result:
             for i in range(len(cont_predicteds)):
                 cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
 
-            if temporal:
-                self.check_videos(Truth, cont_predicteds, 'temporal')
-            else:
-                self.check_videos(Truth, cont_predicteds, streams[0])
+            self.check_videos(Truth, cont_predicteds, streams[0])
 
     def check_videos(self, _y2, predicted, stream):
         h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')

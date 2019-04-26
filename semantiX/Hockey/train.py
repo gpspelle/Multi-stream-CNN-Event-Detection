@@ -315,21 +315,13 @@ class Train:
                 len_min = float("inf")
                 ind_min = -1
 
-                print("Valor de x_train: ", end='')
-                print(X_train)
-                print("Valor de y_train: ", end='')
-                print(y_train)
-                print("Onde y_train eh 0 ", end='')
-                print(np.where(y_train==0)[0], len(np.where(y_train==0)[0]))
-                print("Onde y_train eh 1 ", end='')
-                print(np.where(y_train==1)[0], len(np.where(y_train==1)[0]))
-
                 for i in range(len(self.classes)):
                     all_.append(np.where(y_train==i)[0])
                     print("Tamanho da classe " + self.classes[i] + " " + str(len(all_[-1])))
                     if len(all_[-1]) < len_min:
                         ind_min = i
                         len_min = len(all_[-1])
+
                 
                 for i in range(len(self.classes)):
                     all_[i] = np.random.choice(all_[i], len_min, replace=False)
@@ -342,6 +334,7 @@ class Train:
                 X_train = X_train[allin,...]
                 y_train = y_train[allin]
 
+                
                 classifier = self.set_classifier_vgg16()
                 class_weight = dict()
 
