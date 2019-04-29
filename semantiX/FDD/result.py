@@ -64,9 +64,13 @@ class Result:
         self.all_features = h5features[self.features_key]
         self.all_labels = np.asarray(h5labels[self.labels_key])
 
-        predicted = self.classifier.predict(np.asarray(self.all_features))
+        predicteds = []
+        
+        for data in self.all_features:
+            pred = classifier.predict(np.asarray(data.reshape(1, -1)))
+            predicteds.append(np.argmax(pred))
 
-        return self.all_features, self.all_labels, predicted
+        return self.all_features, self.all_labels, predicteds
 
     def evaluate_threshold(self, truth, predicted):
 
