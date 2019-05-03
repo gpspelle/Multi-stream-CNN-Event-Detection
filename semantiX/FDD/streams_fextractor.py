@@ -36,9 +36,10 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, classes, id):
+    def __init__(self, classes, id, ext):
 
         self.num_features = 4096
+        self.ext = ext
         self.folders = []
         
         self.classes = classes
@@ -357,7 +358,7 @@ class Fextractor:
             self.classes_videos.append([])
             for f in self.classes_dirs[-1]:
                 self.classes_videos[-1].append(data_folder + c+ '/' + f +
-                                   '/' + f + '.avi')
+                                   '/' + f + self.ext)
 
             self.classes_videos[-1].sort()
 
@@ -379,6 +380,8 @@ if __name__ == '__main__':
             required=True)
     argp.add_argument("-id", dest='id', type=str, nargs=1,
             help='Usage: -id <identifier_to_this_features>', required=True)
+    argp.add_argument("-ext", dest='ext', type=str, nargs=1, 
+            help='Usage: -ext <file_extension> .mp4 | .avi | ...', required=True)
     
     try:
         args = argp.parse_args()
@@ -389,7 +392,7 @@ if __name__ == '__main__':
 
     for stream in args.streams:
         print("STREAM: " + stream)
-        fextractor = Fextractor(args.classes, args.id[0])
+        fextractor = Fextractor(args.classes, args.id[0], args.ext[0])
         fextractor.get_dirs(args.data_folder[0])
         fextractor.extract(stream, 'VGG16_' + stream, args.data_folder[0])
         K.clear_session()
