@@ -123,7 +123,6 @@ class Result:
             X, Y, predicted = self.pre_result(stream)
             len_STACK = len(Y)
             Truth = Y
-            predicted = np.asarray(predicted.flat)
             predicteds.append(np.copy(predicted)) 
 
         cont_predicteds = np.zeros(len_STACK, dtype=np.float)
