@@ -38,9 +38,9 @@ import gc
 
 class Optflow_extractor:
 
-    def __init__(self, classes, x_size, y_size):
+    def __init__(self, classes, x_size, y_size, ext):
         self.classes = classes 
-
+        self.ext = ext
         self.classes_dirs = []
         self.classes_videos = []
         self.fall_dirs = []
@@ -126,7 +126,7 @@ class Optflow_extractor:
             self.classes_videos.append([])
             for f in self.classes_dirs[-1]:
                 self.classes_videos[-1].append(data_folder + c+ '/' + f +
-                                   '/' + f + '.avi')
+                                   '/' + f + self.ext)
 
             self.classes_videos[-1].sort()
 
@@ -144,6 +144,8 @@ if __name__ == '__main__':
             required=True)
     argp.add_argument("-input_dim", dest='input_dim', type=int, nargs=2, 
             help='Usage: -input_dim <x_dimension> <y_dimension>', required=True)
+    argp.add_argument("-ext", dest='ext', type=str, nargs=1, 
+            help='Usage: -ext <file_extension> .mp4 | .avi | ...', required=True)
     
     try:
         args = argp.parse_args()
@@ -152,7 +154,7 @@ if __name__ == '__main__':
         exit(1)
 
     optflow_extractor = Optflow_extractor(args.classes, args.input_dim[0],
-                        args.input_dim[1])
+                        args.input_dim[1], args.ext[0])
     optflow_extractor.extract(args.data_folder[0])
 
 '''
