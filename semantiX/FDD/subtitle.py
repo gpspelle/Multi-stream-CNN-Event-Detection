@@ -23,7 +23,7 @@ from keras.models import load_model
 
 class Subtitle:
 
-    def __init__(self, data, classes, threshold, fid, cid):
+    def __init__(self, data, classes, threshold, fid, cid, ext):
        
         self.features_key = 'features' 
         self.labels_key = 'labels'
@@ -32,6 +32,7 @@ class Subtitle:
         self.fid = fid
         self.cid = cid
         self.sliding_height = 10
+        self.ext = ext
 
         self.classes = classes
         self.classes_videos = []
@@ -50,50 +51,60 @@ class Subtitle:
             self.classes_videos.append([])
             for f in self.classes_dirs[-1]:
                 self.classes_videos[-1].append(data_folder + c+ '/' + f +
-                                   '/' + f + '.mp4')
+                                   '/' + f + self.ext)
 
             self.classes_videos[-1].sort()
 
-    def create_subtitle(self, streams):
+    def create_subtitle(self, streams, f_classif):
 
         self.get_dirs(self.data)
 
         predicteds = []
+        len_STACK = 0
+        Truth = 0
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
-   
+            len_STACK = len(Y)
+            Truth = Y
             predicted = np.asarray(predicted.flat)
-            if stream == 'spatial' or stream == 'pose':
-                Truth = Y
-                h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
-                all_samples = np.asarray(h5samples[self.samples_key])
-                pos = 0
-                index = []
-                for x in all_samples:
-                    index += list(range(pos+x[0]-self.sliding_height, pos+x[0]))
-                    pos+=x[0]
-
-                Truth = np.delete(Truth, index)
-                predicted = np.delete(predicted, index) 
-
             predicteds.append(predicted)
 
-        for j in range(len(predicteds[0])):
-            for i in range(1, len(streams)):
-                predicteds[0][j] +=  1 * predicteds[i][j] 
-            predicteds[0][j] /= (1 + 1 * len(range(1, len(streams))))
+        cont_predicteds = np.zeros(len_STACK, dtype=np.float)
 
-        for i in range(len(predicteds[0])):
-            if predicteds[0][i] < self.threshold:
-                predicteds[0][i] = 0
-            else:
-                predicteds[0][i] = 1
+        if f_classif == 'thresh':
+            for j in range(len(cont_predicteds)):
+                for i in range(len(streams)):
+                    cont_predicteds[j] += predicteds[i][j] 
 
-        # Array of predictions 0/1
-        predicted = np.asarray(predicteds[0]).astype(int)
+                cont_predicteds[j] /= (len(streams))
 
-        h5samples = h5py.File('temporal_samples_' + self.fid + '.h5', 'r')
-        h5num = h5py.File('temporal_num_' + self.fid + '.h5', 'r')
+        elif f_classif == 'svm_avg':
+            for j in range(len(cont_predicteds)):
+                for i in range(len(streams)):
+                    cont_predicteds[j] += predicteds[i][j] 
+
+                cont_predicteds[j] /= (len(streams))
+
+            clf = joblib.load('svm_avg.pkl')
+            print('EVALUATE WITH average and svm')
+            for i in range(len(cont_predicteds)):
+                cont_predicteds[i] = clf.predict(cont_predicteds[i])
+
+        elif f_classif == 'svm_cont':
+            clf = joblib.load('svm_cont.pkl')
+            print('EVALUATE WITH continuous values and svm')
+            for i in range(len(cont_predicteds)):
+                cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+
+        else:
+            print("FUNCAO CLASSIFICADORA INVALIDA!!!!")
+            return
+        
+        self.generate_subtitle(Truth, cont_predicteds, streams[0])
+
+    def generate_subtitle(self, Truth, predicted, stream)
+        h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
+        h5num = h5py.File(stream + '_num_' + self.fid + '.h5', 'r')
 
         all_samples = np.asarray(h5samples[self.samples_key])
         all_num = np.asarray(h5num[self.num_key])
@@ -133,10 +144,10 @@ class Subtitle:
                     file_write.write("Truth: %d\n" % Truth[num_stack])
 
                 stack_c += all_samples[video_c + num_video][0]
+                cap.release()
 
             video_c += amount_videos
             class_c += 1
-
 
     def pre_result(self, stream):
         self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')
@@ -150,9 +161,13 @@ class Subtitle:
         self.all_features = h5features[self.features_key]
         self.all_labels = np.asarray(h5labels[self.labels_key])
 
-        predicted = self.classifier.predict(np.asarray(self.all_features))
+        predicteds = []
+        
+        for data in self.all_features:
+            pred = classifier.predict(np.asarray(data.reshape(1, -1)))
+            predicteds.append(np.argmax(pred))
 
-        return self.all_features, self.all_labels, predicted
+        return self.all_features, self.all_labels, predicteds
 
 if __name__ == '__main__':
 
@@ -183,6 +198,11 @@ if __name__ == '__main__':
     argp.add_argument("-cid", dest='cid', type=str, nargs=1,
         help='Usage: -id <identifier_to_classifier>', 
         required=True)
+    argp.add_argument("-ext", dest='ext', type=str, nargs=1, 
+        help='Usage: -ext <file_extension> .mp4 | .avi | ...', required=True)
+    argp.add_argument("-f_classif", dest='f_classif', type=str, nargs=1,
+        help='Usage: -f_classif <thresh> or <svm_avg> or <svm_cont>', 
+        required=True)
 
     try:
         args = argp.parse_args()
@@ -191,10 +211,10 @@ if __name__ == '__main__':
         exit(1)
 
     subt = Subtitle(args.data[0], args.classes, args.thresh[0], args.fid[0], 
-                    args.cid[0])
+                    args.cid[0], args.ext[0])
 
     args.streams.sort()
-    subt.create_subtitle(args.streams)
+    subt.create_subtitle(args.streams, args.f_classif[0])
 
 '''
     todo: criar excecoes para facilitar o uso

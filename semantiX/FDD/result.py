@@ -135,8 +135,6 @@ class Result:
 
                 cont_predicteds[j] /= (len(streams))
 
-            self.check_videos(Truth, cont_predicteds, streams[0])
-            
         elif f_classif == 'svm_avg':
             for j in range(len(cont_predicteds)):
                 for i in range(len(streams)):
@@ -149,15 +147,17 @@ class Result:
             for i in range(len(cont_predicteds)):
                 cont_predicteds[i] = clf.predict(cont_predicteds[i])
 
-            self.check_videos(Truth, cont_predicteds, streams[0])
-
         elif f_classif == 'svm_cont':
             clf = joblib.load('svm_cont.pkl')
             print('EVALUATE WITH continuous values and svm')
             for i in range(len(cont_predicteds)):
                 cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
 
-            self.check_videos(Truth, cont_predicteds, streams[0])
+        else:
+            print("FUNCAO CLASSIFICADORA INVALIDA!!!!")
+            return
+        
+        self.check_videos(Truth, cont_predicteds, streams[0])
 
     def check_videos(self, _y2, predicted, stream):
         h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
