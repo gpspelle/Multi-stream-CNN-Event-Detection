@@ -67,10 +67,10 @@ class Result:
         predicteds = []
         
         for data in self.all_features:
-            pred = classifier.predict(np.asarray(data.reshape(1, -1)))
+            pred = self.classifier.predict(np.asarray(data.reshape(1, -1)))
             predicteds.append(np.argmax(pred))
 
-        return self.all_features, self.all_labels, predicteds
+        return self.all_features, self.all_labels, np.asarray(predicteds)
 
     def evaluate_threshold(self, truth, predicted):
 
