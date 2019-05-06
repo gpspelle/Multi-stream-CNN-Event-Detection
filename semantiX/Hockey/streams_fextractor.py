@@ -162,10 +162,7 @@ class Fextractor:
 
                     # Removing last datas from all streams to match the
                     # amount of data present on temporal sream
-                    if stream == 'temporal':
-                        self.nb_total_data += len(self.data) - sliding_height + 1
-                    else:
-                        self.nb_total_data += len(self.data) - sliding_height
+                    self.nb_total_data += len(self.data) - sliding_height + 1
 
         dataset_features = h5features.create_dataset(features_key, 
                 shape=(self.nb_total_data, self.num_features), dtype='float64')
@@ -194,7 +191,7 @@ class Fextractor:
                 self.data_images_1.sort()
             else:
                 # Removing unmatched frames from other streams
-                self.data_images = self.data_images[:-sliding_height]
+                self.data_images = self.data_images[:-(sliding_height-1)]
 
             label = self.classes.index(classe)
 
