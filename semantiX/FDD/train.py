@@ -158,7 +158,7 @@ class Train:
         for i in range(len(self.classes)):
             class_weight[i] = 1
                 
-        clf_avg = svm.SVC(class_weight=class_weight, gamma='auto') 
+        clf_avg = svm.SVC(class_weight=None, gamma='auto') 
         clf_avg.fit(train_avg_predicted.reshape(-1, 1), y_train)
         for i in range(len(avg_predicted)):
             avg_predicted[i] = clf_avg.predict(avg_predicted[i].reshape(-1, 1))

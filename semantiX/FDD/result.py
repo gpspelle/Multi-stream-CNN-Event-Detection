@@ -144,7 +144,7 @@ class Result:
             clf = joblib.load('svm_avg.pkl')
             print('EVALUATE WITH average and svm')
             for i in range(len(cont_predicteds)):
-                cont_predicteds[i] = clf.predict(cont_predicteds[i])
+                cont_predicteds[i] = clf.predict(cont_predicteds[i].reshape(-1, 1))
 
         elif f_classif == 'svm_cont':
             clf = joblib.load('svm_cont.pkl')
