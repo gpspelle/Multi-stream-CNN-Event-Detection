@@ -38,7 +38,6 @@ class Fextractor:
 
     def __init__(self, classes, id, ext):
 
-        self.num_features = 4096
         self.ext = ext
         self.folders = []
         
@@ -50,8 +49,12 @@ class Fextractor:
         self.class_value = []
         self.data_images = []
         self.data_images_1 = []
-        self.x_size = 224
-        self.y_size = 224
+        
+        # Some constants defined over a lot of classes.
+        self.num_features = 4096    # Number of output of our CNN 
+        self.x_size = 224           # X image size
+        self.y_size = 224           # Y image size               224x224 pixels 
+        
         self.id = id
         # Total amount of data with sliding window=num_images-sliding_height+1
         self.nb_total_data = 0
@@ -61,6 +64,15 @@ class Fextractor:
         print("### Model loading", flush=True)
         extractor_model = load_model(model)
         
+        # This code produces 4 files for each stream.  
+
+        # features_file contain arrays of size self.num_features. Each array is
+        # the output of VGG16 to a data information and is composed of values       
+        # in the range [0, 1].
+
+        # Just to remember, data information is what this stream consider as an
+        # input. RGB streams use a frame, and STACK streams use a stack of frames. 
+
         features_file = stream + '_features_' + self.id  + '.h5'
         labels_file = stream + '_labels_' + self.id  + '.h5'
         samples_file = stream + '_samples_' + self.id  + '.h5'
