@@ -142,6 +142,8 @@ class Fextractor:
             file_name = '/ritmo_*.jpg'
         elif stream == 'depth':
             file_name = '/depth_*.jpg'
+        elif stream == 'saliency':
+            file_name = '/saliency_*.png'
         else:
             print("INVALID STREAM ERROR")
             print("VALIDS STREAMS: {temporal, spatial, pose}") 
@@ -157,15 +159,12 @@ class Fextractor:
             #    exit(1)
 
             for dir in self.classes_dirs[c]: 
-                
-                check_size = glob.glob(data_folder + self.classes[c] + '/' + 
-                                  dir + '/flow_x*.jpg')
                
                 self.data = glob.glob(data_folder + self.classes[c] + '/' + 
                                   dir + file_name)
                     
-                if int(len(check_size)) >= sliding_height:
-                    # search with cam is being used in this dir
+                if len(self.data) - 1 >= sliding_height:
+                    # search which cam is being used in this dir
                     # dir is something like: chute01cam2 or chute01cam2_00
                     num_class[-1] += 1
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
