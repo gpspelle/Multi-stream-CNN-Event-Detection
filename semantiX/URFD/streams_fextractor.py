@@ -163,17 +163,37 @@ class Fextractor:
                 self.data = glob.glob(data_folder + self.classes[c] + '/' + 
                                   dir + file_name)
                     
-                if len(self.data) - 1 >= sliding_height:
-                    # search which cam is being used in this dir
-                    # dir is something like: chute01cam2 or chute01cam2_00
-                    num_class[-1] += 1
-                    self.folders.append(data_folder + self.classes[c] + '/' + dir)
-                    dirs.append(dir)
-                    self.class_value.append(self.classes[c])
+                # if file_name == 'flow_x_*.jpg'
+                # then 
+                #   we have len(self.data) equals to the amount of optical flows
+                #   which is the amount of len(self.data) - 1 for every other
+                #   file_name
 
-                    # Removing last datas from all streams to match the
-                    # amount of data present on temporal sream
-                    self.nb_total_data += len(self.data) - sliding_height + 1
+                # if it is a temporal stream or any other STACK-like stream
+                if stream == 'temporal':
+                    if len(self.data) >= sliding_height:
+                        # search which cam is being used in this dir
+                        # dir is something like: chute01cam2 or chute01cam2_00
+                        num_class[-1] += 1
+                        self.folders.append(data_folder + self.classes[c] + '/' + dir)
+                        dirs.append(dir)
+                        self.class_value.append(self.classes[c])
+
+                        # Removing last datas from all streams to match the
+                        # amount of data present on temporal sream
+                        self.nb_total_data += len(self.data) - sliding_height + 1
+                else:
+                    if len(self.data) - 1 >= sliding_height:
+                        # search which cam is being used in this dir
+                        # dir is something like: chute01cam2 or chute01cam2_00
+                        num_class[-1] += 1
+                        self.folders.append(data_folder + self.classes[c] + '/' + dir)
+                        dirs.append(dir)
+                        self.class_value.append(self.classes[c])
+
+                        # Removing last datas from all streams to match the
+                        # amount of data present on temporal sream
+                        self.nb_total_data += len(self.data) - sliding_height
 
         dataset_features = h5features.create_dataset(features_key, 
                 shape=(self.nb_total_data, self.num_features), dtype='float64')
@@ -202,7 +222,7 @@ class Fextractor:
                 self.data_images_1.sort()
             else:
                 # Removing unmatched frames from other streams
-                self.data_images = self.data_images[:-(sliding_height-1)]
+                self.data_images = self.data_images[:-sliding_height]
 
             label = self.classes.index(classe)
 
