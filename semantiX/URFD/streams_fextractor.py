@@ -36,25 +36,20 @@ import gc
 
 class Fextractor:
 
-    def __init__(self, classes, id, ext):
+    def __init__(self, classes, id):
 
-        self.ext = ext
+        self.num_features = 4096
         self.folders = []
         
         self.classes = classes
-        self.classes.sort()
         self.classes_dirs = []
         self.classes_videos = []
 
         self.class_value = []
         self.data_images = []
         self.data_images_1 = []
-        
-        # Some constants defined over a lot of classes.
-        self.num_features = 4096    # Number of output of our CNN 
-        self.x_size = 224           # X image size
-        self.y_size = 224           # Y image size               224x224 pixels 
-        
+        self.x_size = 224
+        self.y_size = 224
         self.id = id
         # Total amount of data with sliding window=num_images-sliding_height+1
         self.nb_total_data = 0
@@ -64,15 +59,6 @@ class Fextractor:
         print("### Model loading", flush=True)
         extractor_model = load_model(model)
         
-        # This code produces 4 files for each stream.  
-
-        # features_file contain arrays of size self.num_features. Each array is
-        # the output of VGG16 to a data information and is composed of values       
-        # in the range [0, 1].
-
-        # Just to remember, data information is what this stream consider as an
-        # input. RGB streams use a frame, and STACK streams use a stack of frames. 
-
         features_file = stream + '_features_' + self.id  + '.h5'
         labels_file = stream + '_labels_' + self.id  + '.h5'
         samples_file = stream + '_samples_' + self.id  + '.h5'
@@ -140,10 +126,6 @@ class Fextractor:
             file_name = '/frame_*.jpg'
         elif stream == 'ritmo':
             file_name = '/ritmo_*.jpg'
-        elif stream == 'depth':
-            file_name = '/depth_*.jpg'
-        elif stream == 'saliency':
-            file_name = '/saliency_*.png'
         else:
             print("INVALID STREAM ERROR")
             print("VALIDS STREAMS: {temporal, spatial, pose}") 
@@ -152,19 +134,22 @@ class Fextractor:
         for c in range(len(self.classes)):
 
             num_class.append(0)
-            #if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
-            #    print("Sorry. Classes possibles are Falls and NotFalls, its \
-            #        hardcoded and will be expanded really soon. Its being \
-            #        used inside Extracting Features for, setting label value")
-            #    exit(1)
+            if self.classes[c] != 'Falls' and self.classes[c] != 'NotFalls':
+                print("Sorry. Classes possibles are Falls and NotFalls, its \
+                    hardcoded and will be expanded really soon. Its being \
+                    used inside Extracting Features for, setting label value")
+                exit(1)
 
             for dir in self.classes_dirs[c]: 
+                
+                check_size = glob.glob(data_folder + self.classes[c] + '/' + 
+                                  dir + '/flow_x*.jpg')
                
                 self.data = glob.glob(data_folder + self.classes[c] + '/' + 
                                   dir + file_name)
                     
-                if len(self.data) - 1 >= sliding_height:
-                    # search which cam is being used in this dir
+                if int(len(check_size)) >= sliding_height:
+                    # search with cam is being used in this dir
                     # dir is something like: chute01cam2 or chute01cam2_00
                     num_class[-1] += 1
                     self.folders.append(data_folder + self.classes[c] + '/' + dir)
@@ -173,7 +158,10 @@ class Fextractor:
 
                     # Removing last datas from all streams to match the
                     # amount of data present on temporal sream
-                    self.nb_total_data += len(self.data) - sliding_height + 1
+                    if stream == 'temporal':
+                        self.nb_total_data += len(self.data) - sliding_height + 1
+                    else:
+                        self.nb_total_data += len(self.data) - sliding_height
 
         dataset_features = h5features.create_dataset(features_key, 
                 shape=(self.nb_total_data, self.num_features), dtype='float64')
@@ -202,9 +190,13 @@ class Fextractor:
                 self.data_images_1.sort()
             else:
                 # Removing unmatched frames from other streams
-                self.data_images = self.data_images[:-(sliding_height-1)]
+                self.data_images = self.data_images[:-sliding_height]
 
-            label = self.classes.index(classe)
+            label = -1
+            if classe == 'Falls':
+                label = 0
+            else:
+                label = 1
 
             # last -sliding_height + 1 OF frames dont get a stack
             if stream == 'temporal':
@@ -366,7 +358,7 @@ class Fextractor:
             self.classes_videos.append([])
             for f in self.classes_dirs[-1]:
                 self.classes_videos[-1].append(data_folder + c+ '/' + f +
-                                   '/' + f + self.ext)
+                                   '/' + f + '.avi')
 
             self.classes_videos[-1].sort()
 
@@ -388,8 +380,6 @@ if __name__ == '__main__':
             required=True)
     argp.add_argument("-id", dest='id', type=str, nargs=1,
             help='Usage: -id <identifier_to_this_features>', required=True)
-    argp.add_argument("-ext", dest='ext', type=str, nargs=1, 
-            help='Usage: -ext <file_extension> .mp4 | .avi | ...', required=True)
     
     try:
         args = argp.parse_args()
@@ -400,7 +390,7 @@ if __name__ == '__main__':
 
     for stream in args.streams:
         print("STREAM: " + stream)
-        fextractor = Fextractor(args.classes, args.id[0], args.ext[0])
+        fextractor = Fextractor(args.classes, args.id[0])
         fextractor.get_dirs(args.data_folder[0])
         fextractor.extract(stream, 'VGG16_' + stream, args.data_folder[0])
         K.clear_session()

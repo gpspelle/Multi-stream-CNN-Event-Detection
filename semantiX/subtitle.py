@@ -1,12 +1,10 @@
 import sys
-from sklearn.externals import joblib
 import argparse
 import numpy as np
 import h5py
 import os
 import cv2
 import datetime
-from sklearn.metrics import confusion_matrix, accuracy_score
 from keras.models import load_model
 ''' Documentation: class Subtitle
     
@@ -79,28 +77,20 @@ class Subtitle:
                 predicted = np.delete(predicted, index) 
 
             predicteds.append(predicted)
-        
-        clf_continuous = joblib.load('svm_cont.pkl')
 
-        avg_predicted = np.zeros(len(predicteds[0]), dtype=np.float)
-        avg_continuous = np.zeros(len(predicteds[0]), dtype=np.float)
         for j in range(len(predicteds[0])):
-            for i in range(len(streams)):
-                avg_predicted[j] +=  1 * predicteds[i][j] 
-            avg_predicted[j] /= (len(range(len(streams))))
+            for i in range(1, len(streams)):
+                predicteds[0][j] +=  1 * predicteds[i][j] 
+            predicteds[0][j] /= (1 + 1 * len(range(1, len(streams))))
 
         for i in range(len(predicteds[0])):
-            if avg_predicted[i] < self.threshold:
-                avg_predicted[i] = 0
+            if predicteds[0][i] < self.threshold:
+                predicteds[0][i] = 0
             else:
-                avg_predicted[i] = 1
-
-        for i in range(len(avg_continuous)):
-            avg_continuous[i] = clf_continuous.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+                predicteds[0][i] = 1
 
         # Array of predictions 0/1
-        avg_predicted = np.asarray(avg_predicted.astype(int))
-        avg_continuous = np.asarray(avg_continuous.astype(int))
+        predicted = np.asarray(predicteds[0]).astype(int)
 
         h5samples = h5py.File('temporal_samples_' + self.fid + '.h5', 'r')
         h5num = h5py.File('temporal_num_' + self.fid + '.h5', 'r')
@@ -112,55 +102,6 @@ class Subtitle:
         class_c = 0
         video_c = 0
         all_num = [y for x in all_num for y in x]
-
-        cm = confusion_matrix(Truth, avg_predicted,labels=[0,1])
-        tp = cm[0][0]
-        fn = cm[0][1]
-        fp = cm[1][0]
-        tn = cm[1][1]
-        tpr = tp/float(tp+fn)
-        fpr = fp/float(fp+tn)
-        fnr = fn/float(fn+tp)
-        tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
-        recall = tp/float(tp+fn)
-        specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
-        accuracy = accuracy_score(Truth, avg_predicted)
-
-        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-        print('Sensitivity/Recall: {}'.format(recall))
-        print('Specificity: {}'.format(specificity))
-        print('Precision: {}'.format(precision))
-        print('F1-measure: {}'.format(f1))
-        print('Accuracy: {}'.format(accuracy))
-
-
-        cm = confusion_matrix(Truth, avg_continuous,labels=[0,1])
-        tp = cm[0][0]
-        fn = cm[0][1]
-        fp = cm[1][0]
-        tn = cm[1][1]
-        tpr = tp/float(tp+fn)
-        fpr = fp/float(fp+tn)
-        fnr = fn/float(fn+tp)
-        tnr = tn/float(tn+fp)
-        precision = tp/float(tp+fp)
-        recall = tp/float(tp+fn)
-        specificity = tn/float(tn+fp)
-        f1 = 2*float(precision*recall)/float(precision+recall)
-        accuracy = accuracy_score(Truth, avg_continuous)
-
-        print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
-        print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-        print('Sensitivity/Recall: {}'.format(recall))
-        print('Specificity: {}'.format(specificity))
-        print('Precision: {}'.format(precision))
-        print('F1-measure: {}'.format(f1))
-        print('Accuracy: {}'.format(accuracy))
-
-
         for amount_videos in all_num:
             list_video = self.classes_videos[class_c][:]
             save_dir = self.classes_dirs[class_c][:]
@@ -171,42 +112,14 @@ class Subtitle:
                 fps = cap.get(cv2.CAP_PROP_FPS) 
                 subtitle_c = 0
                 time = 0.0
-
-                print('************')
-                print('%s %s' % (cl, save_dir[num_video]))
-
                 file_write = open(self.data + cl + '/' + save_dir[num_video] +
                         '/' + save_dir[num_video] + '.srt' , 'w')  
 
                 for num_stack in range(stack_c, stack_c + all_samples[video_c+num_video][0]):
+                    subtitle_c += 1
 
                     if num_stack >= len(predicted):
                         break
-
-
-                    if avg_predicted[num_stack] == 0 and Truth[num_stack] == 0:
-                        result = 'TP'
-                    elif avg_predicted[num_stack] == 0 and Truth[num_stack] == 1:
-                        result = 'FP'
-                    elif avg_predicted[num_stack] == 1 and Truth[num_stack] == 1:
-                        result = 'TN'
-                    else:
-                        result = 'FN'
-
-                    if avg_continuous[num_stack] == 0 and Truth[num_stack] == 0:
-                        result2 = 'TP'
-                    elif avg_continuous[num_stack] == 0 and Truth[num_stack] == 1:
-                        result2 = 'FP'
-                    elif avg_continuous[num_stack] == 1 and Truth[num_stack] == 1:
-                        result2 = 'TN'
-                    else:
-                        result2 = 'FN'
-
-                    diff = result == result2
-                    print('Frame: %d - %s - %s -          %r      '% (subtitle_c, result, result2, diff), end='') 
-                    print(predicteds[0][num_stack], predicteds[1][num_stack], predicteds[2][num_stack])
-
-                    subtitle_c += 1
 
                     time += (1 / fps + 0.001)
                     file_write.write("\n")
