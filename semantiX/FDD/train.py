@@ -191,7 +191,7 @@ class Train:
         avg_predicted = clf_avg.predict(avg_predicted)
         train_avg_predicted = clf_avg.predict(train_avg_predicted)
 
-        joblib.dump(clf_avg, 'svm_avg.pkl') 
+        joblib.dump(clf_avg, 'svm_avg_' + key + '.pkl') 
 
         del clf_avg
         gc.collect()
@@ -210,9 +210,8 @@ class Train:
         self.taccuracies_avg_svm[key].append(accuracy)
 
 ####
-####        TREINAMENTO CONTINUO E SVM 1
+####        TREINAMENTO CONTINUO E SVM 2
 ####
-
 ####
 ####        EXAMPLE:
 ####
@@ -268,7 +267,7 @@ class Train:
         test_2_continuous = clf_continuous.predict(svm_cont_2_test_predicteds) 
         train_2_continuous = clf_continuous.predict(svm_cont_2_train_predicteds) 
 
-        joblib.dump(clf_continuous, 'svm_cont_2.pkl') 
+        joblib.dump(clf_continuous, 'svm_' + key + '_cont_2.pkl') 
         print('EVALUATE WITH continuous values and SVM 2')
         tpr, fpr, fnr, tnr, precision, sensitivity, specificity, f1, accuracy = self.evaluate(test_2_continuous, y_test)
         
@@ -295,7 +294,7 @@ class Train:
         test_1_continuous = clf_continuous.predict(svm_cont_1_test_predicteds) 
         train_1_continuous = clf_continuous.predict(svm_cont_1_train_predicteds) 
 
-        joblib.dump(clf_continuous, 'svm_cont_1.pkl') 
+        joblib.dump(clf_continuous, 'svm_' + key + '_cont_1.pkl') 
         print('EVALUATE WITH continuous values and SVM 1')
         tpr, fpr, fnr, tnr, precision, sensitivity, specificity, f1, accuracy = self.evaluate(test_1_continuous, y_test)
         
@@ -533,7 +532,7 @@ class Train:
                 h5labels.close()
 
             for key in list(test_predicteds.keys()):
-                print('########## TESTS WITH  ' + ''.join(key))
+                print('########## TESTS WITH  ' + key)
                 self.calc_metrics(self.num_streams[key], y_test, y_train, 
                         test_predicteds[key], train_predicteds[key], key)
        
@@ -785,6 +784,10 @@ class Train:
 
         # Compute metrics and print them
         cm = confusion_matrix(y, predicted, labels=[i for i in range(len(self.classes))])
+
+        # This doesnt't make sense anymore.
+        # With multiclasses tp isn't only cm[0][0], for example.
+        # Need to be improved.
         tp = cm[0][0]
         fn = cm[0][1]
         fp = cm[1][0]
@@ -808,7 +811,7 @@ class Train:
 
         #print('TP: {}, TN: {}, FP: {}, FN: {}'.format(tp,tn,fp,fn))
         #print('TPR: {}, TNR: {}, FPR: {}, FNR: {}'.format(tpr,tnr,fpr,fnr))   
-        print('Sensitivity/Recall: {}'.format(sensitivity))
+        #print('Sensitivity/Recall: {}'.format(sensitivity))
         #print('Specificity: {}'.format(specificity))
         #print('Precision: {}'.format(precision))
         #print('F1-measure: {}'.format(f1))
@@ -975,6 +978,7 @@ if __name__ == '__main__':
             args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0],
             args.streams)
 
+    # Need to sort
     args.streams.sort()
     random.seed(1)
     train.real_cross_train(args.nsplits[0])

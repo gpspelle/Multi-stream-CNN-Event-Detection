@@ -62,21 +62,24 @@ class Subtitle:
         predicteds = []
         len_STACK = 0
         Truth = 0
+        key = ''.join(streams)
+
         for stream in streams:
             X, Y, predicted = self.pre_result(stream)
             len_STACK = len(Y)
             Truth = Y
-            predicted = np.asarray(predicted.flat)
-            predicteds.append(predicted)
+            predicteds.append(np.copy(predicted)) 
 
         cont_predicteds = np.zeros(len_STACK, dtype=np.float)
-
+                   
         if f_classif == 'thresh':
             for j in range(len(cont_predicteds)):
                 for i in range(len(streams)):
                     cont_predicteds[j] += predicteds[i][j] 
 
                 cont_predicteds[j] /= (len(streams))
+
+            self.evaluate_max(Truth, cont_predicteds)
 
         elif f_classif == 'svm_avg':
             for j in range(len(cont_predicteds)):
@@ -85,16 +88,40 @@ class Subtitle:
 
                 cont_predicteds[j] /= (len(streams))
 
-            clf = joblib.load('svm_avg.pkl')
+            clf = joblib.load('svm_avg_ ' + key + '.pkl')
             print('EVALUATE WITH average and svm')
             for i in range(len(cont_predicteds)):
-                cont_predicteds[i] = clf.predict(cont_predicteds[i])
+                cont_predicteds[i] = clf.predict(cont_predicteds[i].reshape(-1, 1))
 
-        elif f_classif == 'svm_cont':
-            clf = joblib.load('svm_cont.pkl')
-            print('EVALUATE WITH continuous values and svm')
-            for i in range(len(cont_predicteds)):
-                cont_predicteds[i] = clf.predict(np.asarray([item[i] for item in predicteds]).reshape(1, -1))
+            self.evaluate(Truth, cont_predicteds)
+
+        elif f_classif == 'svm_1':
+
+            svm_cont_1_test_predicteds = []
+            for i in range(len(self.streams)):
+                aux_svm = joblib.load('svm_' + self.streams[i] + '_1_aux.pkl')
+
+                svm_cont_1_test_predicteds.append(aux_svm.predict(predicteds[i]))
+
+            svm_cont_1_test_predicteds = np.asarray(svm_cont_1_test_predicteds)
+            svm_cont_1_test_predicteds = np.reshape(svm_cont_1_test_predicteds, svm_cont_1_test_predicteds.shape[::-1])
+
+            clf = joblib.load('svm_' + key + '_cont_1.pkl')
+            print('EVALUATE WITH continuous values and SVM 1')
+            cont_predicteds = clf.predict(svm_cont_1_test_predicteds) 
+
+            self.evaluate(Truth, cont_predicteds)
+
+        elif f_classif == 'svm_2':
+            clf = joblib.load('svm_ ' + key '_cont_2.pkl')
+
+            svm_cont_2_test_predicteds = np.asarray([list(predicteds[:, i, j]) for i in range(len(Truth)) for j in range(len(self.classes))])
+            svm_cont_2_test_predicteds = svm_cont_2_test_predicteds.reshape(len(Truth), len(self.classes) * len(streams))
+
+            print('EVALUATE WITH continuous values and SVM 2')
+            cont_predicteds = clf.predict(svm_cont_2_test_predicteds) 
+            
+            self.evaluate(Truth, cont_predicteds)
 
         else:
             print("FUNCAO CLASSIFICADORA INVALIDA!!!!")
@@ -164,8 +191,9 @@ class Subtitle:
         predicteds = []
         
         for data in self.all_features:
-            pred = classifier.predict(np.asarray(data.reshape(1, -1)))
-            predicteds.append(np.argmax(pred))
+            pred = self.classifier.predict(np.asarray(data.reshape(1, -1)))
+            pred = pred.flatten()
+            predicteds.append(pred)
 
         return self.all_features, self.all_labels, predicteds
 
@@ -213,6 +241,7 @@ if __name__ == '__main__':
     subt = Subtitle(args.data[0], args.classes, args.thresh[0], args.fid[0], 
                     args.cid[0], args.ext[0])
 
+    # Need to sort 
     args.streams.sort()
     subt.create_subtitle(args.streams, args.f_classif[0])
 
