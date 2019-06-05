@@ -20,17 +20,63 @@ import gc
 '''
 
 ''' Documentation: class Fextractor
+
+    As the code present in multi-stream-vgg16.py, this code has a lot of auto-
+    defined variables: num_features, x_size, y_size, sliding_height.
+
+    Also, the files need to be organized in a proper way. Lets first define
+    a few variables.
+
+    -data is passed as argument and contains the path to our data. 
+
+    In my case, I'm using a folder /mnt/Data/URFD/, so I pass:
+
+    -data /mnt/Data/URFD
+
+    Next, we have -class variable
+
+    Inside /mnt/Data/URFD we have two folders: Falls and NotFalls. 
+
+    /mnt/Data/URFD/Falls
+    /mnt/Data/URFD/NotFalls
+
+    so, 
+
+    -class Falls NotFalls
+
+    needs to be passed as argument. 
+
+    Inside this folders /mnt/Data/URFD/Falls we have many other folders, 
+    each of these folders has a video, the name of this folder, suppose
+    video01 contains a video named, for example, video01.mp4.
+    Illustrating, /mnt/Data/URFD/Falls/video01 has a file
+    /mnt/Data/URFD/Falls/video01/video01.mp4. This video, that not necessarily
+    needs to be in the .mp4 extension, is used by the Data_Extraction 
+    pre-process stage to acquire informations like: optical flow, pose
+    estimation, among others. 
+
+    Now, if our video has n frames, inside this /mnt/Data/URFD/Falls/video01/
+    we shall have:
+
+    n frames of all streams
+    n-1 frame for optical_flow (actually, only one OF algorithm is being used
+    and it uses 2 frames to calculate one OF, so the last frame doesn't match)
+
+    Now, we have two kind of streams, as already said in multi-stream-vgg16.py.
+    STACK stream stacks sliding_height frames to evaluate.
+    RGB streams evaluate every frame.
+
+    It causes a decompensation.
+
+    This decompensation is solved while extracting features and then everything
+    shall be fine in this aspect. Every sliding_height stack has a start frame,
+    right? We will compare the frame that start this stack to their matches
+    from the other streams. Creating a one-to-one correlation within the stream.
+
+    The output feature .h5 file is an array of arrays with num_features elements    each, so, (n, num_features). label .h5 file is an array of arrays with 1
+    elements, so, (n, 1). This 1 element is the label of the class, so far,
+    it's only possible 10 different classes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
     
-    This class has a few methods:
-
-    extract
-
-    The only method that should be called outside of this class is:
-
-    extract: receives a CNN already trained until the last two full connected
-    layers and extract features from optical flows extracted from a video.
-    A feature is the result from a feedforward using a stack of optical flows,
-    later these features will be used for training these last two layers.
 '''
 
 
@@ -131,6 +177,9 @@ class Fextractor:
         h5samples = h5py.File(samples_file, 'w')
         h5num_classes = h5py.File(num_file, 'w')
 
+        '''
+            Each stream need to have its file with correct names
+        '''
         if stream == 'temporal':
             file_name = '/flow_x*.jpg'
             file_name_1 = '/flow_y*.jpg'
@@ -146,7 +195,7 @@ class Fextractor:
             file_name = '/saliency_*.png'
         else:
             print("INVALID STREAM ERROR")
-            print("VALIDS STREAMS: {temporal, spatial, pose}") 
+            print("VALIDS STREAMS: {temporal, spatial, pose, ritmo, depth, saliency}") 
             exit(1)
 
         for c in range(len(self.classes)):

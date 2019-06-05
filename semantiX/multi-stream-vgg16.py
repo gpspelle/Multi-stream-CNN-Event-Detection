@@ -70,9 +70,7 @@ from keras.applications.vgg16 import VGG16
     it's using optical flow, which is using 2 frames to create one optical flow.
     Therefore, the last frame can't make an optical flow for it. And that makes 
     temporal to cut the last sliding_height frames. But That's a discussion that
-    matters only for the next steps, in specific,  
-    
-    including streams_fextractor.py.
+    matters only for the next steps, in specific, streams_fextractor.py.
 
 '''
 
