@@ -112,18 +112,16 @@ class Result:
         if f_classif == 'thresh':
             for j in range(len(cont_predicteds)):
                 for i in range(len(streams)):
-                    cont_predicteds[j] += predicteds[i][j] 
-
-                cont_predicteds[j] /= (len(streams))
+                    for k in range(len(self.classes):
+                        cont_predicteds[j] += (predicteds[i][j][k] / len(streams)) 
 
             self.evaluate_max(Truth, cont_predicteds)
 
         elif f_classif == 'svm_avg':
             for j in range(len(cont_predicteds)):
                 for i in range(len(streams)):
-                    cont_predicteds[j] += predicteds[i][j] 
-
-                cont_predicteds[j] /= (len(streams))
+                    for k in range(len(self.classes):
+                        cont_predicteds[j] += (predicteds[i][j][k] / len(streams)) 
 
             clf = joblib.load('svm_avg_ ' + key + '.pkl')
             print('EVALUATE WITH average and svm')
