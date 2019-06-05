@@ -79,7 +79,7 @@ class Result:
         for i in range(len(truth)):
             predicted[i] = np.argmax(avg_predicted[i])
 
-        self.evaluate(predicted, truth)
+        return self.evaluate(predicted, truth)
 
     def evaluate(self, predicted, truth):
 
@@ -94,6 +94,8 @@ class Result:
         print('Accuracy: {}'.format(accuracy))
         print('Matthews: {}'.format(matthews_corrcoef(truth, predicted)))
 
+        return predicted
+
     def result(self, streams, f_classif):
 
         predicteds = []
@@ -107,28 +109,27 @@ class Result:
             Truth = Y
             predicteds.append(np.copy(predicted)) 
 
-        cont_predicteds = np.zeros(len_STACK, dtype=np.float)
+        cont_predicteds = np.zeros(shape=(len_STACK, len(self.classes)) dtype=np.float)
                    
         if f_classif == 'thresh':
-            for j in range(len(cont_predicteds)):
+            for j in range(len_STACK):
                 for i in range(len(streams)):
                     for k in range(len(self.classes):
-                        cont_predicteds[j] += (predicteds[i][j][k] / len(streams)) 
+                        cont_predicteds[j][k] += (predicteds[i][j][k] / len(streams)) 
 
-            self.evaluate_max(Truth, cont_predicteds)
+            cont_predicteds = self.evaluate_max(Truth, cont_predicteds)
 
         elif f_classif == 'svm_avg':
-            for j in range(len(cont_predicteds)):
+            for j in range(len_STACK):
                 for i in range(len(streams)):
                     for k in range(len(self.classes):
-                        cont_predicteds[j] += (predicteds[i][j][k] / len(streams)) 
+                        cont_predicteds[j][k] += (predicteds[i][j][k] / len(streams)) 
 
             clf = joblib.load('svm_avg_ ' + key + '.pkl')
             print('EVALUATE WITH average and svm')
-            for i in range(len(cont_predicteds)):
-                cont_predicteds[i] = clf.predict(cont_predicteds[i].reshape(-1, 1))
+            cont_predicteds = clf.predict(cont_predicteds)
 
-            self.evaluate(Truth, cont_predicteds)
+            cont_predicteds = self.evaluate(Truth, cont_predicteds)
 
         elif f_classif == 'svm_1':
 
@@ -145,7 +146,7 @@ class Result:
             print('EVALUATE WITH continuous values and SVM 1')
             cont_predicteds = clf.predict(svm_cont_1_test_predicteds) 
 
-            self.evaluate(Truth, cont_predicteds)
+            cont_predicteds = self.evaluate(Truth, cont_predicteds)
 
         elif f_classif == 'svm_2':
             clf = joblib.load('svm_ ' + key '_cont_2.pkl')
@@ -156,7 +157,7 @@ class Result:
             print('EVALUATE WITH continuous values and SVM 2')
             cont_predicteds = clf.predict(svm_cont_2_test_predicteds) 
             
-            self.evaluate(Truth, cont_predicteds)
+            cont_predicteds = self.evaluate(Truth, cont_predicteds)
 
         else:
             print("FUNCAO CLASSIFICADORA INVALIDA!!!!")
