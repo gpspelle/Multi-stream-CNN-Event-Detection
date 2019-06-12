@@ -5,6 +5,8 @@ from sklearn.externals import joblib
 import numpy as np
 import h5py
 from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, matthews_corrcoef, \
+                            classification_report
 from keras.layers import Input, Activation, Dense, Dropout
 from keras.layers.normalization import BatchNormalization 
 from keras.optimizers import Adam
@@ -38,19 +40,19 @@ from matplotlib import pyplot as plt
 
 class Result:
 
-    def __init__(self, classes, threshold, fid, cid):
+    def __init__(self, streams, classes, fid, cid):
 
         self.features_key = 'features' 
         self.labels_key = 'labels'
         self.samples_key = 'samples'
         self.num_key = 'num'
         self.classes = classes
+        self.streams = streams
 
         self.fid = fid
         self.cid = cid
         self.sliding_height = 10
 
-        self.threshold = threshold
 
     def pre_result(self, stream):
         self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')
@@ -79,9 +81,9 @@ class Result:
         for i in range(len(truth)):
             predicted[i] = np.argmax(avg_predicted[i])
 
-        return self.evaluate(predicted, truth)
+        return self.evaluate(truth, predited)
 
-    def evaluate(self, predicted, truth):
+    def evaluate(self, truth, predicted):
 
         print("Classification report for classifier \n%s\n"
             % (classification_report(truth, predicted)))
@@ -96,36 +98,37 @@ class Result:
 
         return predicted
 
-    def result(self, streams, f_classif):
+    def result(self, f_classif):
 
         predicteds = []
         len_STACK = 0
         Truth = 0
-        key = ''.join(streams)
+        key = ''.join(self.streams)
 
-        for stream in streams:
+        for stream in self.streams:
             X, Y, predicted = self.pre_result(stream)
             len_STACK = len(Y)
             Truth = Y
             predicteds.append(np.copy(predicted)) 
 
-        cont_predicteds = np.zeros(shape=(len_STACK, len(self.classes)) dtype=np.float)
+        predicteds = np.asarray(predicteds)
+        cont_predicteds = np.zeros(shape=(len_STACK, len(self.classes)), dtype=np.float)
                    
-        if f_classif == 'thresh':
+        if f_classif == 'max_avg':
             for j in range(len_STACK):
-                for i in range(len(streams)):
-                    for k in range(len(self.classes):
-                        cont_predicteds[j][k] += (predicteds[i][j][k] / len(streams)) 
+                for i in range(len(self.streams)):
+                    for k in range(len(self.classes)):
+                        cont_predicteds[j][k] += (predicteds[i][j][k] / len(self.streams)) 
 
             cont_predicteds = self.evaluate_max(Truth, cont_predicteds)
 
         elif f_classif == 'svm_avg':
             for j in range(len_STACK):
-                for i in range(len(streams)):
-                    for k in range(len(self.classes):
-                        cont_predicteds[j][k] += (predicteds[i][j][k] / len(streams)) 
+                for i in range(len(self.streams)):
+                    for k in range(len(self.classes)):
+                        cont_predicteds[j][k] += (predicteds[i][j][k] / len(self.streams)) 
 
-            clf = joblib.load('svm_avg_ ' + key + '.pkl')
+            clf = joblib.load('svm_avg_' + key + '.pkl')
             print('EVALUATE WITH average and svm')
             cont_predicteds = clf.predict(cont_predicteds)
 
@@ -149,10 +152,10 @@ class Result:
             cont_predicteds = self.evaluate(Truth, cont_predicteds)
 
         elif f_classif == 'svm_2':
-            clf = joblib.load('svm_ ' + key '_cont_2.pkl')
+            clf = joblib.load('svm_' + key + '_cont_2.pkl')
 
             svm_cont_2_test_predicteds = np.asarray([list(predicteds[:, i, j]) for i in range(len(Truth)) for j in range(len(self.classes))])
-            svm_cont_2_test_predicteds = svm_cont_2_test_predicteds.reshape(len(Truth), len(self.classes) * len(streams))
+            svm_cont_2_test_predicteds = svm_cont_2_test_predicteds.reshape(len(Truth), len(self.classes) * len(self.streams))
 
             print('EVALUATE WITH continuous values and SVM 2')
             cont_predicteds = clf.predict(svm_cont_2_test_predicteds) 
@@ -163,7 +166,7 @@ class Result:
             print("FUNCAO CLASSIFICADORA INVALIDA!!!!")
             return
         
-        self.check_videos(Truth, cont_predicteds, streams[0])
+        self.check_videos(Truth, cont_predicteds, self.streams[0])
 
     def check_videos(self, _y2, predicted, stream):
         h5samples = h5py.File(stream + '_samples_' + self.fid + '.h5', 'r')
@@ -228,8 +231,6 @@ if __name__ == '__main__':
     argp.add_argument("-streams", dest='streams', type=str, nargs='+',
             help='Usage: -streams spatial temporal (to use 2 streams example)',
             required=True)
-    argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
-            help='Usage: -thresh <x> (0<=x<=1)', required=True)
     argp.add_argument("-fid", dest='fid', type=str, nargs=1,
         help='Usage: -id <identifier_to_features>', 
         required=True)
@@ -237,7 +238,7 @@ if __name__ == '__main__':
         help='Usage: -id <identifier_to_classifier>', 
         required=True)
     argp.add_argument("-f_classif", dest='f_classif', type=str, nargs=1,
-        help='Usage: -f_classif <thresh> or <svm_avg> or <svm_cont>', 
+        help='Usage: -f_classif <max_avg> or <svm_avg> or <svm_1> or <svm_2>', 
         required=True)
 
     try:
@@ -246,11 +247,11 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    result = Result(args.classes, args.thresh[0], args.fid[0], args.cid[0])
+    result = Result(args.streams, args.classes, args.fid[0], args.cid[0])
 
     # Need to sort
     args.streams.sort()
-    result.result(args.streams, args.f_classif[0])
+    result.result(args.f_classif[0])
 
 '''
     todo: criar excecoes para facilitar o uso

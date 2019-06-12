@@ -52,7 +52,7 @@ from matplotlib import pyplot as plt
 '''
 class Train:
 
-    def __init__(self, threshold, epochs, learning_rate, 
+    def __init__(self, epochs, learning_rate, 
     classes, weight, mini_batch_size, id, batch_norm, streams):
 
         '''
@@ -71,7 +71,6 @@ class Train:
 
         self.id = id
 
-        self.threshold = threshold
         self.num_features = 4096
         self.sliding_height = 10
         self.epochs = epochs
@@ -950,8 +949,6 @@ if __name__ == '__main__':
     argp.add_argument("-class", dest='classes', type=str, nargs='+', 
             help='Usage: -class <class0_name> <class1_name>..<n-th_class_name>',
             required=True)
-    argp.add_argument("-thresh", dest='thresh', type=float, nargs=1,
-            help='Usage: -thresh <x> (0<=x<=1)', required=True)
     argp.add_argument("-ep", dest='ep', type=int, nargs=1,
             help='Usage: -ep <num_of_epochs>', required=True)
     argp.add_argument("-lr", dest='lr', type=float, nargs=1,
@@ -974,7 +971,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    train = Train(args.thresh[0], args.ep[0], args.lr[0], args.classes, 
+    train = Train(args.ep[0], args.lr[0], args.classes, 
             args.w0[0], args.mini_batch[0], args.id[0], args.batch_norm[0],
             args.streams)
 
