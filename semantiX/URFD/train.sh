@@ -1,1 +1,1 @@
-python3 train.py -actions cross-train -streams temporal spatial pose -class Falls NotFalls -thresh 0.5 -w0 1 -ep 50 -batch_norm True -mini_batch 0 -id URFD -nsplits 5 -lr 0.0001
+python3 train.py -actions cross-train -streams temporal -class Falls NotFalls -w0 1 -ep 2 -batch_norm True -fold_norm 2 -kfold video -mini_batch 1024 -id URFD -nsplits 5 -lr 0.0001
