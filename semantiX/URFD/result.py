@@ -40,7 +40,7 @@ from matplotlib import pyplot as plt
 
 class Result:
 
-    def __init__(self, streams, classes, fid, cid):
+    def __init__(self, streams, classes, fid, cid, fold):
 
         self.features_key = 'features' 
         self.labels_key = 'labels'
@@ -51,11 +51,12 @@ class Result:
 
         self.fid = fid
         self.cid = cid
+        self.fold = fold
         self.sliding_height = 10
 
 
     def pre_result(self, stream):
-        self.classifier = load_model(stream + '_classifier_' + self.cid + '.h5')
+        self.classifier = load_model(self.fold + '_' + stream + '_classifier_' + self.cid + '.h5')
 
         # Reading information extracted
         h5features = h5py.File(stream + '_features_' +  self.fid + '.h5', 'r')
@@ -128,7 +129,7 @@ class Result:
                     for k in range(len(self.classes)):
                         cont_predicteds[j][k] += (predicteds[i][j][k] / len(self.streams)) 
 
-            clf = joblib.load('svm_avg_' + key + '.pkl')
+            clf = joblib.load(self.fold + '_' + 'svm_avg_' + key + '.pkl')
             print('EVALUATE WITH average and svm')
             cont_predicteds = clf.predict(cont_predicteds)
 
@@ -138,21 +139,21 @@ class Result:
 
             svm_cont_1_test_predicteds = []
             for i in range(len(self.streams)):
-                aux_svm = joblib.load('svm_' + self.streams[i] + '_1_aux.pkl')
+                aux_svm = joblib.load(self.fold + '_' + 'svm_' + self.streams[i] + '_1_aux.pkl')
 
                 svm_cont_1_test_predicteds.append(aux_svm.predict(predicteds[i]))
 
             svm_cont_1_test_predicteds = np.asarray(svm_cont_1_test_predicteds)
             svm_cont_1_test_predicteds = np.reshape(svm_cont_1_test_predicteds, svm_cont_1_test_predicteds.shape[::-1])
 
-            clf = joblib.load('svm_' + key + '_cont_1.pkl')
+            clf = joblib.load(self.fold + '_' + 'svm_' + key + '_cont_1.pkl')
             print('EVALUATE WITH continuous values and SVM 1')
             cont_predicteds = clf.predict(svm_cont_1_test_predicteds) 
 
             cont_predicteds = self.evaluate(Truth, cont_predicteds)
 
         elif f_classif == 'svm_2':
-            clf = joblib.load('svm_' + key + '_cont_2.pkl')
+            clf = joblib.load(self.fold + '_' + 'svm_' + key + '_cont_2.pkl')
 
             svm_cont_2_test_predicteds = np.asarray([list(predicteds[:, i, j]) for i in range(len(Truth)) for j in range(len(self.classes))])
             svm_cont_2_test_predicteds = svm_cont_2_test_predicteds.reshape(len(Truth), len(self.classes) * len(self.streams))
@@ -240,6 +241,9 @@ if __name__ == '__main__':
     argp.add_argument("-f_classif", dest='f_classif', type=str, nargs=1,
         help='Usage: -f_classif <max_avg> or <svm_avg> or <svm_1> or <svm_2>', 
         required=True)
+    argp.add_argument("-fold", dest='fold', type=str, nargs=1,
+        help='Usage: Fold index from train.py', 
+        required=True)
 
     try:
         args = argp.parse_args()
@@ -247,7 +251,7 @@ if __name__ == '__main__':
         argp.print_help(sys.stderr)
         exit(1)
 
-    result = Result(args.streams, args.classes, args.fid[0], args.cid[0])
+    result = Result(args.streams, args.classes, args.fid[0], args.cid[0], args.fold)
 
     # Need to sort
     args.streams.sort()
