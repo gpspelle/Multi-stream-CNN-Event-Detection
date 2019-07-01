@@ -121,7 +121,7 @@ class Train:
         self.accuracies_svm_2 = dict()
 
     def calc_metrics(self, num_streams, y_test, y_train, test_predicteds,
-                    train_predicteds, key):
+                    train_predicteds, key, counter):
 
         avg_predicted = np.zeros(shape=(len(y_test), len(self.classes)), dtype=np.float)
         train_avg_predicted = np.zeros(shape=(len(y_train), len(self.classes)),  dtype=np.float)
@@ -152,7 +152,7 @@ class Train:
 
             svm_cont_1_test_predicteds.append(aux_svm.predict(test_predicteds[i]))
             svm_cont_1_train_predicteds.append(aux_svm.predict(train_predicteds[i]))
-            joblib.dump(aux_svm, 'svm_' + self.streams[i] + '_1_aux.pkl')
+            joblib.dump(counter + '_' + aux_svm, 'svm_' + self.streams[i] + '_1_aux.pkl')
 
         svm_cont_1_test_predicteds = np.asarray(svm_cont_1_test_predicteds)
         svm_cont_1_train_predicteds = np.asarray(svm_cont_1_train_predicteds)
@@ -192,7 +192,7 @@ class Train:
         avg_predicted = clf_avg.predict(avg_predicted)
         train_avg_predicted = clf_avg.predict(train_avg_predicted)
 
-        joblib.dump(clf_avg, 'svm_avg_' + key + '.pkl')
+        joblib.dump(counter + '_' + clf_avg, 'svm_avg_' + key + '.pkl')
 
         del clf_avg
         gc.collect()
@@ -268,7 +268,7 @@ class Train:
         test_2_continuous = clf_continuous.predict(svm_cont_2_test_predicteds)
         train_2_continuous = clf_continuous.predict(svm_cont_2_train_predicteds)
 
-        joblib.dump(clf_continuous, 'svm_' + key + '_cont_2.pkl')
+        joblib.dump(counter + '_' + clf_continuous, 'svm_' + key + '_cont_2.pkl')
         print('EVALUATE WITH continuous values and SVM 2')
         tpr, fpr, fnr, tnr, precision, sensitivity, specificity, f1, accuracy = self.evaluate(test_2_continuous, y_test)
 
@@ -295,7 +295,7 @@ class Train:
         test_1_continuous = clf_continuous.predict(svm_cont_1_test_predicteds)
         train_1_continuous = clf_continuous.predict(svm_cont_1_train_predicteds)
 
-        joblib.dump(clf_continuous, 'svm_' + key + '_cont_1.pkl')
+        joblib.dump(counter + '_' + clf_continuous, 'svm_' + key + '_cont_1.pkl')
         print('EVALUATE WITH continuous values and SVM 1')
         tpr, fpr, fnr, tnr, precision, sensitivity, specificity, f1, accuracy = self.evaluate(test_1_continuous, y_test)
 
@@ -464,7 +464,7 @@ class Train:
                 self.plot_training_info(exp, ['accuracy', 'loss'], True,
                                    history.history)
 
-                classifier.save(stream + '_classifier_' + self.id + '.h5')
+                classifier.save(counter + '_' + stream + '_classifier_' + self.id + '.h5')
                 h5features.close()
                 h5labels.close()
 
@@ -481,7 +481,7 @@ class Train:
                 h5labels = h5py.File(stream + '_labels_' + self.id + '.h5', 'r')
                 all_features = h5features[self.features_key]
                 all_labels = np.asarray(h5labels[self.labels_key])
-                classifier = load_model(stream + '_classifier_' + self.id + '.h5')
+                classifier = load_model(counter + '_' + stream + '_classifier_' + self.id + '.h5')
 
                 X_train = np.empty(shape=(0, self.num_features), dtype=int)
                 y_train = np.empty(shape=(0, 1), dtype=int)
@@ -541,7 +541,7 @@ class Train:
             for key in list(test_predicteds.keys()):
                 print('########## TESTS WITH  ' + key)
                 self.calc_metrics(self.num_streams[key], y_test, y_train,
-                        test_predicteds[key], train_predicteds[key], key)
+                        test_predicteds[key], train_predicteds[key], key, counter)
 
         h5features_start.close()
         h5labels_start.close()
